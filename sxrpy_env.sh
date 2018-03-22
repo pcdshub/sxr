@@ -5,7 +5,7 @@ unset LD_LIBRARY_PATH
 unset PYTHONPATH
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/reg/common/package/epicsca/3.14.12/lib/rhel6-x86_64
 export PATH=/reg/g/pcds/pyps/conda/py36/bin:$PATH
-conda_env=pcds-0.5.2
+conda_env=pcds-0.6.1
 
 # Source the EPICS env first before the conda env
 source /reg/g/pcds/setup/epicsenv-cur.sh
