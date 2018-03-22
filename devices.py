@@ -5,7 +5,7 @@ from ophyd.signal import EpicsSignal, EpicsSignalRO, Signal
 from ophyd import PVPositioner
 from ophyd.status import wait as status_wait
 
-from pcdsdevices.epics_motor import EpicsMotor, IMSMotor
+from pcdsdevices.epics_motor import EpicsMotor, IMS
 from pcdsdevices.mv_interface import FltMvInterface
 
 from utils import retry
@@ -146,7 +146,7 @@ class Sequencer(Device):
     def stop(self,wait=True):
         """
         Stop the sequencer.
-        """ls
+        """
         status = self.state_control.set(0, timeout=self.timeout)
         if wait:
             status_wait(status)        
