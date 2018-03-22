@@ -8,6 +8,7 @@ from bluesky.preprocessors import run_wrapper
 from ophyd.sim import SynAxis
 
 from pcdsdevices.daq import Daq, make_daq_run_engine
+from pcdsdevices.epics_motor import IMS
 
 from plans import delay_scan as _delay_scan
 from devices import Newport, Vitara

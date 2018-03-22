@@ -1,10 +1,10 @@
 import logging
 
-from ophyd.device import Device, Component as C
+from ophyd.device import Device, Component as Cmp
 from ophyd.signal import EpicsSignal, EpicsSignalRO, Signal
 from ophyd import PVPositioner
 
-from pcdsdevices.epics_motor import EpicsMotor
+from pcdsdevices.epics_motor import EpicsMotor, IMSMotor
 from pcdsdevices.mv_interface import FltMvInterface
 
 from utils import retry
@@ -16,9 +16,9 @@ class Vitara(Device, FltMvInterface):
     """
     Class for the Vitara phase shifter system.
     """
-    _target = C(EpicsSignal, ":FS_TGT_TIME_DIAL", name="Target time")
-    _offset = C(EpicsSignal, ":FS_TGT_TIME_OFFSET", name="Offset")
-    _time = C(EpicsSignal, ":FS_TGT_TIME", name="Timing")
+    _target = Cmp(EpicsSignal, ":FS_TGT_TIME_DIAL", name="Target time")
+    _offset = Cmp(EpicsSignal, ":FS_TGT_TIME_OFFSET", name="Offset")
+    _time = Cmp(EpicsSignal, ":FS_TGT_TIME", name="Timing")
 
     def set(self, value, *args, **kwargs):
         return self.move(value, *args, **kwargs)
@@ -59,9 +59,9 @@ class Newport(EpicsMotor):
     """
     Basic class for the newport motors.
     """
-    home_forward = C(Signal)
-    home_reverse = C(Signal)
-    offset_freeze_switch = C(Signal)
+    home_forward = Cmp(Signal)
+    home_reverse = Cmp(Signal)
+    offset_freeze_switch = Cmp(Signal)
 
     #@retry(tries=3)
     def move(self, *args, **kwargs):
@@ -88,6 +88,21 @@ class SeqBase(SndDevice):
     def stop(self):
         """
         Stop the sequencer.
-        """
+        """ls
         status = self.state_control.set(0, timeout=self.timeout)
-        status_wait(status)        
+        status_wait(status)
+
+
+
+class ConsolidatedSamplePalette(Device):
+    '''
+
+    '''
+    '''
+    x_motor = Cmp(IMS,"")
+    y_motor = Cmp(IMS,"")
+    z_motor = Cmp(IMS,"")
+
+    '''
+    pass
+
