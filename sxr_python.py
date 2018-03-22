@@ -11,8 +11,9 @@ from pcdsdevices.daq import Daq, make_daq_run_engine
 from pcdsdevices.epics_motor import IMS
 
 from plans import delay_scan as _delay_scan
-from devices import Newport, Vitara
+from devices import Newport, Vitara, Sequencer
 from exceptions import InputError
+
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +106,7 @@ def delay_scan_rel(start_rel, stop_rel, *args, **kwargs):
 vitara = Vitara("LAS:FS2:VIT", name="Vitara")
 delay = Newport("SXR:LAS:H1:DLS:01", name="Delay Stage")
 testMotor = SynAxis(name="Blah")
-
+sequencer = Sequencer("ECS:SYS0:2",name="sequencer")
 
 # DAQ
 daq = Daq(None, platform=0)
