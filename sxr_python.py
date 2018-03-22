@@ -7,8 +7,7 @@ from bluesky import RunEngine
 from bluesky.preprocessors import run_wrapper
 from ophyd.sim import SynAxis
 
-from pcdsdevices.daq import Daq, make_daq_run_engine
-from pcdsdevices.epics_motor import IMS
+from pcdsdaq import daq
 
 from plans import delay_scan as _delay_scan
 from devices import Newport, Vitara, Sequencer
@@ -109,7 +108,7 @@ testMotor = SynAxis(name="Blah")
 sequencer = Sequencer("ECS:SYS0:2",name="sequencer")
 
 # DAQ
-daq = Daq(None, platform=0)
+user_daq = daq(None, platform=0)
 
 # Run Engine
 RE = RunEngine({})
