@@ -8,7 +8,7 @@ from bluesky.preprocessors import run_wrapper
 from ophyd.sim import SynAxis
 
 #from pcdsdevices.daq import Daq, make_daq_run_engine
-from pcdsdaq import daq
+from pcdsdaq.daq import Daq
 
 from plans import delay_scan as _delay_scan
 from devices import Newport, Vitara
@@ -106,11 +106,9 @@ vitara = Vitara("LAS:FS2:VIT", name="Vitara")
 delay = Newport("SXR:LAS:H1:DLS:01", name="Delay Stage")
 testMotor = SynAxis(name="Blah")
 
-
-# DAQ
-user_daq = daq(None, platform=0)
-
 # Run Engine
 RE = RunEngine({})
 
+# DAQ
+daq = Daq(RE=RE, platform=0)
 
