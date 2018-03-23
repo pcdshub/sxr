@@ -8,6 +8,7 @@ from bluesky import RunEngine
 from bluesky.preprocessors import run_wrapper
 from ophyd.sim import SynAxis
 
+from pcdsdevices.epics_motor import IMS, Newport
 from pcdsdaq.daq import Daq
 
 from plans import delay_scan as _delay_scan
@@ -105,11 +106,13 @@ def delay_scan_rel(start_rel, stop_rel, *args, **kwargs):
 # Devices
 vitara = Vitara("LAS:FS2:VIT", name="Vitara")
 delay = Newport("SXR:LAS:H1:DLS:01", name="Delay Stage")
+mono = IMS("SXR:MON:MMS:06", name="Monochrometer")
+
 testMotor = SynAxis(name="Blah")
-sequencer = Sequencer("ECS:SYS0:2",name="sequencer")
+sequencer = Sequencer("ECS:SYS0:2", name="sequencer")
 
 sample_dims = np.array([10,10])
-palette = ConsolidatedSamplePalette("",name="palette",*sample_dims) 
+palette = ConsolidatedSamplePalette("",name="palette",*sample_dims)
 
 
 # Run Engine

@@ -15,8 +15,7 @@ c = 299792458 * 1000 * 1e-9                           # mm/ns
 
 def delay_scan(daq, vitara, delay, start, stop, num, *args, 
                return_to_start=True, delay_const=1, **kwargs):
-    """
-    Performs a delay scan using the vitara phase shifter and a delay stage,
+    """Performs a delay scan using the vitara phase shifter and a delay stage,
     keeping the delay between them fixed.
 
     Parameters
@@ -69,8 +68,7 @@ def delay_scan(daq, vitara, delay, start, stop, num, *args,
 
 def a2_daq_scan(daq, num, *args, events_per_point=1000, record=False, 
                 controls=None, wait=None, md=None, **kwargs):
-    """
-    Performs an a2 scan and takes daq events at each step.
+    """Performs an a2 scan and takes daq events at each step.
 
     Parameters
     ----------
@@ -102,9 +100,6 @@ def a2_daq_scan(daq, num, *args, events_per_point=1000, record=False,
     """
     events = events_per_point
 
-    # Define a sim signal to appease the bluesky plans
-    syn_signal = SynSignal(name="Fake signal")
-
     # Define what to do at each step
     # @retry(Exception, tries=5)
     def per_step(detectors, motor, step):
@@ -127,16 +122,15 @@ def a2_daq_scan(daq, num, *args, events_per_point=1000, record=False,
             raise Exception("Could not connect to the Daq!")
         # Run the inner product scan
         print("Established DAQ connection, beginning scan.")
-        yield from inner_product_scan([syn_signal], num, *args, 
-                                      per_step=per_step, md=md, **kwargs)
+        yield from inner_product_scan([], num, *args, per_step=per_step, md=md,
+                                      **kwargs)
     finally:
         print("Completed scan, ending DAQ run.")
         daq.end_run()
         daq.disconnect()
 
 def a2_scan(num, *args, wait=None, md=None, **kwargs):
-    """
-    Performs a multi-motor scan on a linear trajectory, waiting the specified 
+    """Performs a multi-motor scan on a linear trajectory, waiting the specified 
     amount of time at each step.
 
     Parameters
@@ -154,9 +148,6 @@ def a2_scan(num, *args, wait=None, md=None, **kwargs):
     md : dict, optional
         metadata
     """
-    # Define a sim signal to appease the bluesky plans
-    syn_signal = SynSignal(name="Fake signal")
-
     # Define what to do at each step
     def per_step(detectors, motor, step):
         for m, pos in motor.items():
@@ -167,6 +158,16 @@ def a2_scan(num, *args, wait=None, md=None, **kwargs):
             time.sleep(wait)
 
     # Run the inner product scan
-    yield from inner_product_scan([syn_signal], num, *args, per_step=per_step, 
-                                  md=md, **kwargs)
+    yield from inner_product_scan([], num, *args, per_step=per_step, md=md, 
+                                  **kwargs)
  
+def mcgrain_scan(motor, sequencer, monochrometer, mono_start, mono_stop,
+                 mono_steps):
+    """Nested scan taking the number of steps in the motor, at every
+    monochrometer.
+    """
+
+    
+    yield from scan([], monochrometer, mono_start, mono_stop, mono_steps
+                    per_step=per_step)
+

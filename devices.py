@@ -9,7 +9,6 @@ from ophyd.status import wait as status_wait
 from pcdsdevices.epics_motor import EpicsMotor, IMS
 from pcdsdevices.mv_interface import FltMvInterface
 
-from utils import retry
 from calib_file import CalibFile
 
 logger = logging.getLogger(__name__)
@@ -56,20 +55,6 @@ class Vitara(Device, FltMvInterface):
     @time.setter
     def time(self, value):
         return self._time.set(value)  
-
-
-class Newport(EpicsMotor):
-    """
-    Basic class for the newport motors.
-    """
-
-    home_forward = Cpt(Signal)
-    home_reverse = Cpt(Signal)
-    offset_freeze_switch = Cpt(Signal)
-
-    #@retry(tries=3)
-    def move(self, *args, **kwargs):
-        return super().move(*args, **kwargs)
 
 
 class Sequencer(Device):
@@ -158,9 +143,9 @@ class ConsolidatedSamplePalette(Device):
     '''
     
     '''
-    # x_motor = Cpt(IMS,"{self._xmotor_prefix}:{self._xmotor_suffix}")
-    # y_motor = Cpt(IMS,"{self._ymotor_prefix}:{self._ymotor_suffix}")
-    # z_motor = Cpt(IMS,"{self._zmotor_prefix}:{self._zmotor_suffix}")
+    x_motor = Cpt(IMS,"{self._xmotor_prefix}:{self._xmotor_suffix}")
+    y_motor = Cpt(IMS,"{self._ymotor_prefix}:{self._ymotor_suffix}")
+    z_motor = Cpt(IMS,"{self._zmotor_prefix}:{self._zmotor_suffix}")
 
 
     def __init__(self, prefix, N_dim=1, M_dim=1, timeout=1, motor_timeout=5,
@@ -386,5 +371,3 @@ class ConsolidatedSamplePalette(Device):
 
         return all_status
             
-        
-
