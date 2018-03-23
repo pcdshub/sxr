@@ -1,4 +1,5 @@
 import logging
+import numpy as np
 
 from ophyd.device import Device, Component as Cpt, FormattedComponent as FCpt
 from ophyd.signal import EpicsSignal, EpicsSignalRO, Signal
@@ -154,13 +155,159 @@ class Sequencer(Device):
 
 class ConsolidatedSamplePalette(Device):
     '''
+    
+    '''
+    # x_motor = Cpt(IMS,"{self._xmotor_prefix}:{self._xmotor_suffix}")
+    # y_motor = Cpt(IMS,"{self._ymotor_prefix}:{self._ymotor_suffix}")
+    # z_motor = Cpt(IMS,"{self._zmotor_prefix}:{self._zmotor_suffix}")
 
-    '''
-    '''
-    x_motor = Cmp(IMS,"")
-    y_motor = Cmp(IMS,"")
-    z_motor = Cmp(IMS,"")
 
-    '''
-    pass
+    def __init__(self, prefix, N_dim=1, M_dim=1, timeout=1, motor_timeout=5,
+                samples=None, *args, **kwargs):
+        
+        self._xmotor_prefix = None
+        self._ymotor_prefix = None
+        self._zmotor_prefix = None
+        self._xmotor_suffix = None
+        self._ymotor_suffix = None        
+        self._zmotor_suffix = None       
+
+        super().__init__(prefix, *args, **kwargs)
+        self.timeout = timeout
+        self.motor_timeout = motor_timeout
+
+        # How many samples are there in the N and M directions
+        self.N_dim = N_dim
+        self.M_dim = M_dim
+
+        # if the number of samples on the pallete is not given, presume full
+        # matrix allotment 
+        if samples == None:
+            self.samples = self.N_dim * self.M_dim
+        else:
+            self.samples = samples
+
+    def accept_callibration(self,N,M,start_pt,n_pt,m_pt):
+        '''
+        Notes on coordinates:
+        
+        Z points upstream along the beam, X points horizontally, Y points
+        vertically
+
+        N,M coordinates represent points on the sample palette. N roughly
+        parallels the X axis and M roughly parallels Y. 
+
+        I,J coordinates are used to reference specific samples using the N,M
+        system.
+
+        K represents samples along the snake-shaped scanning path. 
+
+
+        n : int
+            Number of samples stepped over in the N axis for calibration
+
+        m : int 
+            Number of samples stepped over in the M axis for calibration
+
+        start_pt : np.array
+            3-length iterable (x,y,z) specifying spatial coordinate of bottom
+            left (facing downstream) sample where the scan will start from 
+
+        n_pt : np.array
+            3-length iterable (x,y,z) specifying spatial coordinate of the
+            fiducail sample on the N axis
+        
+        m_pt : np.array 
+            3-length iterable (x,y,z) specifying spatial coordinate of the
+            fiducial smaple on the M ais
+        '''
+
+        # save the origin point in XYZ space
+        self.start_pt = start_pt
+
+        # Define unit vectors on the NM plane in XYZ space
+        self.N_hat = (n_pt - self.start_pt) / N
+        self.M_hat = (m_pt - self.start_pt) / M
+
+    def locate_2d(self, i, j):
+        '''
+        return XYZ coordinates of sample i,j
+        '''
+        target_pt = self.start_pt + i * self.N_hat + j * self.M_hat
+        return target_pt
+
+    def locate_1d(self, k):
+        '''
+        return NM coordinates of sample k
+        '''
+
+        # calculate the horizontal row
+        j = int(np.floor(k/self.N_dim))
+
+        # calculate the column w/o snake-wrapping
+        i = k % self.N_dim
+
+        # apply snake-wrapping to odd columns by reversing pathing order 
+        if j % 2 :
+            i = (self.N_dim - i) - 1  
+
+        return np.array([i,j])
+
+    def move_to_sample_2d(self, i ,j, timeout=None, wait=True):
+        '''
+        Move to IJ coordinate in NM space.
+        '''
+        if timeout == None:
+            timeout = self.timeout
+
+        XYZ_target = self.locate_2d(i,j)
+        status = self.mv(*XYZ_target,timeout=timeout,wait=wait)
+        return status
+
+    def move_to_sample_1d(self, k, timeout=None, wait=True):
+        '''
+        Move to point K on the sampling path.
+        '''
+        if timeout == None:
+            timeout = self.timeout
+
+        IJ_target = self.locate_1d(k)
+        status = self.move_to_sample_2d(*IJ_target,timeout=timeout,wait=wait)
+        return status
+
+    def move(self, k, timeout=None, wait=True):
+        '''
+        Wrap move_to_sample_1d under a common name.
+        '''
+        if timeout == None:
+            timeout = self.timeout
+
+        status = self.move_to_sample_1d(self, k, timeout=timeout,wait=wait)
+        return status
+
+    def mv(self, x, y, z, timeout=None,wait=True):
+        '''
+        Move to given XYZ coordinate
+        '''
+        if timeout == None:
+            timeout = self.timeout
+
+        status_x = self.x_motor.move(x, timeout=timeout)
+        status_y = self.y_motor.move(y, timeout=timeout)
+        status_z = self.z_motor.move(z, timeout=timeout)
+
+        all_status = status_x & status_y & status_z
+
+        if wait:
+            try:
+                status_wait(all_status)
+            except KeyboardInterrupt:
+                self.x_motor.stop()
+                self.y_motor.stop()
+                self.z_motor.stop()
+                raise
+
+        return all_status
+            
+        
 

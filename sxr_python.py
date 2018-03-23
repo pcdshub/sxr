@@ -1,5 +1,6 @@
 import time
 import logging
+import numpy as np
 from imp import reload
 from pathlib import Path
 
@@ -7,10 +8,10 @@ from bluesky import RunEngine
 from bluesky.preprocessors import run_wrapper
 from ophyd.sim import SynAxis
 
-from pcdsdaq import daq
+from pcdsdaq.daq import Daq
 
 from plans import delay_scan as _delay_scan
-from devices import Newport, Vitara, Sequencer
+from devices import Newport, Vitara, Sequencer, ConsolidatedSamplePalette
 from exceptions import InputError
 
 
@@ -107,10 +108,13 @@ delay = Newport("SXR:LAS:H1:DLS:01", name="Delay Stage")
 testMotor = SynAxis(name="Blah")
 sequencer = Sequencer("ECS:SYS0:2",name="sequencer")
 
-# DAQ
-user_daq = daq(None, platform=0)
+sample_dims = np.array([10,10])
+palette = ConsolidatedSamplePalette("",name="palette",*sample_dims) 
+
 
 # Run Engine
 RE = RunEngine({})
 
+# DAQ
+daq = Daq(RE=RE, platform=0)
 
