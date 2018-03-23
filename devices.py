@@ -164,6 +164,13 @@ class ConsolidatedSamplePalette(Device):
 
     def __init__(self, prefix, N_dim=1, M_dim=1, timeout=1, motor_timeout=5,
                 samples=None, *args, **kwargs):
+        '''
+        N_dim : int
+            specify the number of samples in the N direction
+
+        M_dim : int
+            specify the number of samples in the M direction
+        '''
         
         self._xmotor_prefix = None
         self._ymotor_prefix = None
@@ -232,6 +239,10 @@ class ConsolidatedSamplePalette(Device):
     def locate_2d(self, i, j):
         '''
         return XYZ coordinates of sample i,j
+
+        i : int
+
+        j : int
         '''
         target_pt = self.start_pt + i * self.N_hat + j * self.M_hat
         return target_pt
@@ -239,6 +250,8 @@ class ConsolidatedSamplePalette(Device):
     def locate_1d(self, k):
         '''
         return NM coordinates of sample k
+
+        k : int
         '''
 
         # calculate the horizontal row
@@ -255,7 +268,15 @@ class ConsolidatedSamplePalette(Device):
 
     def move_to_sample_2d(self, i ,j, timeout=None, wait=True):
         '''
-        Move to IJ coordinate in NM space.
+        Move to point IJ in NM space.
+        
+        i : int
+        
+        j : int
+
+        timeout : int
+
+        wait : bool
         '''
         if timeout == None:
             timeout = self.timeout
@@ -266,7 +287,13 @@ class ConsolidatedSamplePalette(Device):
 
     def move_to_sample_1d(self, k, timeout=None, wait=True):
         '''
-        Move to point K on the sampling path.
+        Move to point K in the sampling path space
+        
+        k : int
+
+        timeout : int
+
+        wait : bool
         '''
         if timeout == None:
             timeout = self.timeout
@@ -278,6 +305,12 @@ class ConsolidatedSamplePalette(Device):
     def move(self, k, timeout=None, wait=True):
         '''
         Wrap move_to_sample_1d under a common name.
+        
+        k : int
+
+        timeout : int
+
+        wait : bool
         '''
         if timeout == None:
             timeout = self.timeout
@@ -288,6 +321,16 @@ class ConsolidatedSamplePalette(Device):
     def mv(self, x, y, z, timeout=None,wait=True):
         '''
         Move to given XYZ coordinate
+
+        x : float
+
+        y : float
+
+        z : float 
+
+        timeout : int
+
+        wait : bool
         '''
         if timeout == None:
             timeout = self.timeout
