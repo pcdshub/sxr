@@ -3,7 +3,7 @@
 *.swo
 
 
-
+*.csv
 .DS_store
 *.pyc
 .vscode
