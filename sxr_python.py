@@ -11,7 +11,7 @@ from ophyd.sim import SynAxis
 from pcdsdevices.epics_motor import IMS, Newport
 from pcdsdaq.daq import Daq
 
-from plans import delay_scan as _delay_scan
+from plans import delay_scan as _delay_scan, mcgrain_scan as _mcgrain_scan
 from devices import Newport, Vitara, Sequencer, ConsolidatedSamplePalette
 from exceptions import InputError
 
@@ -85,7 +85,7 @@ def delay_scan(start, stop, num=None, step_size=None, events_per_point=1000,
                        return_to_start=return_to_start, record=record, 
                        wait=wait, events_per_point=events_per_point, 
                        delay_const=delay_const)
-    RE(plan)
+    yield from plan
 
 def delay_scan_rel(start_rel, stop_rel, *args, **kwargs):
     """
@@ -101,7 +101,12 @@ def delay_scan_rel(start_rel, stop_rel, *args, **kwargs):
         Relative stopping delay for the scan in ns.
     """
     pos = vitara.position
-    return delay_scan(pos + start_rel, pos + stop_rel, *args, **kwargs)
+    yield from delay_scan(pos + start_rel, pos + stop_rel, *args, **kwargs)
+
+def mcgrain_scan(mono_start, mono_stop, mono_steps, palette_steps, *args,
+                 **kwargs):
+    yield from _mcgrain_scan(mono, palette, sequencer, mono_start, mono_stop,
+                             mono_steps, palette_steps, *args, **kwargs)
     
 # Devices
 vitara = Vitara("LAS:FS2:VIT", name="Vitara")
@@ -112,7 +117,7 @@ testMotor = SynAxis(name="Blah")
 sequencer = Sequencer("ECS:SYS0:2", name="sequencer")
 
 sample_dims = np.array([10,10])
-palette = ConsolidatedSamplePalette("",name="palette",*sample_dims)
+palette = ConsolidatedSamplePalette("", name="palette", *sample_dims)
 
 
 # Run Engine
