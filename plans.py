@@ -101,7 +101,7 @@ def a2_daq_scan(daq, num, *args, events_per_point=1000, record=False,
 
     # Define what to do at each step
     # @retry(Exception, tries=5)
-    def per_step(_, motor, step):
+    def per_step(detectors, motor, step):
         for m, pos in motor.items():
             print("Moving '{0}' to {1}".format(m.name, pos))
         yield from one_nd_step([], motor, step)
@@ -148,7 +148,7 @@ def a2_scan(num, *args, wait=None, md=None, **kwargs):
         metadata
     """
     # Define what to do at each step
-    def per_step(_, motor, step):
+    def per_step(detectors, motor, step):
         for m, pos in motor.items():
             print("Moving '{0}' to {1}".format(m.name, pos))
         yield from one_nd_step([], motor, step)
@@ -172,30 +172,30 @@ def mcgrain_scan(outer_motor, inner_motor, sequencer, outer_start,
     Parameters
     ----------
     outer_motor : Motor
-    	Motor to perform the outer normal scan
+        Motor to perform the outer normal scan
 
     inner_motor : Motor
-    	Motor to perform the inner relative scan
+        Motor to perform the inner relative scan
 
     sequencer : Sequencer
-    	Sequencer to trigger at every inner motor step
-
-    inner_steps : int or list
-    	Number of relative steps to take at every outer step if an int. If it's
-    	a list, it is the list of relative motions to perform at every outer
-    	step
+        Sequencer to trigger at every inner motor step
 
     outer_start : float
-    	Starting position of the outer motor
+        Starting position of the outer motor
 
     outer_start : float
-    	Stopping position of the outer motor
+        Stopping position of the outer motor
     
     outer_start : float
-    	Number of steps to take during the scan, including the endpoints
+        Number of steps to take during the scan, including the endpoints
+
+    inner_steps : int or list
+        Number of relative steps to take at every outer step if an int. If it's
+        a list, it is the list of relative motions to perform at every outer
+        step
 
     wait : float, optional
-        The amount of time to wait at each step    	
+        The amount of time to wait at each step     
     """
     # Create the list of relative motions that will be performed
     if isinstance(inner_steps, int):
