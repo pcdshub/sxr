@@ -145,7 +145,7 @@ class McgrainPalette(Device, FltMvInterface):
     z_motor = Cpt(IMS, "SXR:EXP:MMS:11", name='LJE Sample Z')
 
     def __init__(self, N=23, M=(24*3 + 8), chip_spacing=2.4, sample_spacing=1.0,
-                 timeout=1, length=82.6, samples_per_chip=24, invert=False, 
+                 timeout=1,  samples_per_chip=24, invert=False, 
                  *args, **kwargs):
         """
         N : int
@@ -161,12 +161,15 @@ class McgrainPalette(Device, FltMvInterface):
 
         # How many samples are there in the N and M directions
         self.N = N
-        self.M = M - 1
+        self.M = M
 
         self.samples_per_chip = samples_per_chip 
         self.chip_spacing = chip_spacing
         self.sample_spacing = sample_spacing
-        self.length = length
+        self.num_chips = self.M // self.samples_per_chip
+        self.length = ((self.M - self.num_chips - 1)*self.sample_spacing 
+                       + self.num_chips * self.chip_spacing)
+
         self.chip_factor = (self.chip_spacing - self.sample_spacing)/self.length
 
         # if the number of samples on the pallete is not given, presume full
@@ -237,17 +240,21 @@ class McgrainPalette(Device, FltMvInterface):
         self.calibrated = True
         # save the origin point in XYZ space
         self.start_pt = start_pt
+        self.n_pt = n_pt
+        self.m_pt = m_pt
 
         # Define unit vectors on the NM plane in XYZ space
-        self.N_hat = (n_pt - self.start_pt) / (self.N - 1)
+        self.N_hat = (self.n_pt - self.start_pt) / (self.N - 1)
         # Correct for the chip spacing when calculating the M_hat
-        self.M_hat = ((m_pt - self.start_pt)
-                      * (1 - 2*self.chip_factor)
-                      / (self.M + 1))
+        self.M_hat = (((self.m_pt - self.start_pt)
+                       * (1 - self.num_chips*self.chip_factor))
+                      / (self.M - 1))
         # Put both N_hat and M_hat in an array
         self.NM_hat = np.concatenate((self.N_hat.reshape(len(self.motors), 1), 
                                       self.M_hat.reshape(len(self.motors), 1)), 
                                      axis=1)
+
+        self.length_calibrated = np.sqrt(np.sum((self.m_pt - self.start_pt)**2))
 
     def locate_2d(self, i, j):
         """Return XYZ coordinates of sample i, j
@@ -260,8 +267,9 @@ class McgrainPalette(Device, FltMvInterface):
         j : int
             The j coordinate to move to on the palette
         """
-        return self.start_pt + i*self.N_hat + \
-          j*self.M_hat*(1 + self._chip(j)*self.chip_factor)
+        return (self.start_pt + i*self.N_hat + j*self.M_hat 
+                + self._chip_from_j(j)*self.chip_factor
+                * (self.m_pt - self.start_pt))
 
     def locate_1d(self, k):
         """Return NM coordinates of sample k
@@ -376,27 +384,38 @@ class McgrainPalette(Device, FltMvInterface):
     def index(self):
         """Returns the i,j palette position based on the current coordinates."""
         start_diff = self.coordinates - self.start_pt
-        return np.dot(start_diff, self.NM_hat)
+        raw_index = np.round(
+            np.dot(start_diff, self.NM_hat)
+            - np.array([
+                 0, 
+                 self.chip*self.chip_factor*self.length_calibrated]))
+        return raw_index.astype(int)
 
     @property
     def position(self):
         """Returns the current sample number."""
         i, j = self.index
-        return self.N * j + (self.N - i - 1 if j % 2 else i)
+        return j*self.N + (self.N - i - 1 if j%2 else i)
 
     @property
     def remaining(self):
         """Returns the remaining number of samples."""
-        return self.samples - self.position
+        return self.samples - self.position - 1
 
-    def _chip(self, j):
+    def _chip_from_j(self, j):
         """Returns the chip number based on the inputted column."""
         return j // self.samples_per_chip
 
+    def _chip_from_xyz(self, coordinates):
+        start_diff = coordinates - self.start_pt
+        percent_complete = (np.dot(start_diff, self.M_hat)
+                            / np.sqrt(np.sum((self.m_pt - self.start_pt)**2)))
+        return self.M * percent_complete // self.samples_per_chip
+        
     @property
     def chip(self):
         """Returns the current chip position."""
-        return self._chip(self.index[1])
+        return int(self._chip_from_xyz(self.coordinates))
 
     # def invert(self):
     #     self.N, self.M = self.M, self.N
