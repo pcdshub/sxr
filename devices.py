@@ -10,6 +10,7 @@ from pcdsdevices.epics_motor import EpicsMotor, IMS
 from pcdsdevices.mv_interface import FltMvInterface
 
 from utils import retry
+from calib_file import CalibFile
 
 logger = logging.getLogger(__name__)
 
@@ -183,6 +184,8 @@ class ConsolidatedSamplePalette(Device):
         self.timeout = timeout
         self.motor_timeout = motor_timeout
 
+        self.calibrated = False
+
         # How many samples are there in the N and M directions
         self.N_dim = N_dim
         self.M_dim = M_dim
@@ -194,7 +197,26 @@ class ConsolidatedSamplePalette(Device):
         else:
             self.samples = samples
 
-    def accept_callibration(self,N,M,start_pt,n_pt,m_pt):
+    def calibrate_from_file(self,file_name):
+        '''
+        Set calibration using a CalibFile or .csv saved from a CalibFile
+
+        Parameters
+        ----------
+        file_name : str or CalibFile
+            Either pass the name of the .csv saved from a CalibFile or pass the
+            CalibFile direcly.
+        '''
+        data_file = CalibFile(file_name)
+        self.accept_calibration(
+            N = data_file.N,
+            M = data_file.M,
+            start_pt = data_file.start_pt,
+            n_pt = data_file.n_pt,
+            m_pt = data_file.m_pt
+        )
+
+    def accept_calibration(self,N,M,start_pt,n_pt,m_pt):
         '''
         Notes on coordinates:
         
@@ -216,18 +238,22 @@ class ConsolidatedSamplePalette(Device):
         m : int 
             Number of samples stepped over in the M axis for calibration
 
-        start_pt : np.array
+        start_pt : np.array or pd.Series
             3-length iterable (x,y,z) specifying spatial coordinate of bottom
             left (facing downstream) sample where the scan will start from 
 
-        n_pt : np.array
+        n_pt : np.array or pd.Series
             3-length iterable (x,y,z) specifying spatial coordinate of the
             fiducail sample on the N axis
         
-        m_pt : np.array 
+        m_pt : np.array or pd.Series
             3-length iterable (x,y,z) specifying spatial coordinate of the
             fiducial smaple on the M ais
         '''
+        if self.calibrated:
+            logger.warning("WARNING: Overriding existing calibration!")
+        
+        self.calibrated = True
 
         # save the origin point in XYZ space
         self.start_pt = start_pt
@@ -318,6 +344,14 @@ class ConsolidatedSamplePalette(Device):
         status = self.move_to_sample_1d(self, k, timeout=timeout,wait=wait)
         return status
 
+    def set(self, k, timeout=None, wait=True):
+        '''
+        Add compatibility with the abs_set plan in bluesky
+        '''
+        if timeout == None:
+            timeout = self.timeout
+        return self.move(k,timeout=timeout,wait=wait) 
+    
     def mv(self, x, y, z, timeout=None,wait=True):
         '''
         Move to given XYZ coordinate
