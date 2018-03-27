@@ -2,10 +2,9 @@ import uuid
 import logging
 import time
 
-from ophyd.sim import SynSignal
-from bluesky.plan_stubs import one_nd_step, abs_set, wait as plan_wait
-
-from bluesky.plans import inner_product_scan
+from bluesky.plan_stubs import one_nd_step, abs_set, rel_set, wait as plan_wait
+from bluesky.plans import scan, inner_product_scan, list_scan
+from bluesky.preprocessors import stub_wrapper
 
 from utils import retry
 
@@ -15,8 +14,7 @@ c = 299792458 * 1000 * 1e-9                           # mm/ns
 
 def delay_scan(daq, vitara, delay, start, stop, num, *args, 
                return_to_start=True, delay_const=1, **kwargs):
-    """
-    Performs a delay scan using the vitara phase shifter and a delay stage,
+    """Performs a delay scan using the vitara phase shifter and a delay stage,
     keeping the delay between them fixed.
 
     Parameters
@@ -69,8 +67,7 @@ def delay_scan(daq, vitara, delay, start, stop, num, *args,
 
 def a2_daq_scan(daq, num, *args, events_per_point=1000, record=False, 
                 controls=None, wait=None, md=None, **kwargs):
-    """
-    Performs an a2 scan and takes daq events at each step.
+    """Performs an a2 scan and takes daq events at each step.
 
     Parameters
     ----------
@@ -102,15 +99,12 @@ def a2_daq_scan(daq, num, *args, events_per_point=1000, record=False,
     """
     events = events_per_point
 
-    # Define a sim signal to appease the bluesky plans
-    syn_signal = SynSignal(name="Fake signal")
-
     # Define what to do at each step
     # @retry(Exception, tries=5)
     def per_step(detectors, motor, step):
         for m, pos in motor.items():
             print("Moving '{0}' to {1}".format(m.name, pos))
-        yield from one_nd_step(detectors, motor, step)
+        yield from one_nd_step([], motor, step)
         if wait is not None:
             print("Step complete! Waiting for {0} second(s)...\n".format(wait))
             time.sleep(wait)
@@ -127,16 +121,15 @@ def a2_daq_scan(daq, num, *args, events_per_point=1000, record=False,
             raise Exception("Could not connect to the Daq!")
         # Run the inner product scan
         print("Established DAQ connection, beginning scan.")
-        yield from inner_product_scan([syn_signal], num, *args, 
-                                      per_step=per_step, md=md, **kwargs)
+        yield from inner_product_scan([], num, *args, per_step=per_step, md=md,
+                                      **kwargs)
     finally:
         print("Completed scan, ending DAQ run.")
         daq.end_run()
         daq.disconnect()
 
 def a2_scan(num, *args, wait=None, md=None, **kwargs):
-    """
-    Performs a multi-motor scan on a linear trajectory, waiting the specified 
+    """Performs a multi-motor scan on a linear trajectory, waiting the specified 
     amount of time at each step.
 
     Parameters
@@ -154,19 +147,83 @@ def a2_scan(num, *args, wait=None, md=None, **kwargs):
     md : dict, optional
         metadata
     """
-    # Define a sim signal to appease the bluesky plans
-    syn_signal = SynSignal(name="Fake signal")
-
     # Define what to do at each step
     def per_step(detectors, motor, step):
         for m, pos in motor.items():
             print("Moving '{0}' to {1}".format(m.name, pos))
-        yield from one_nd_step(detectors, motor, step)
+        yield from one_nd_step([], motor, step)
         if wait is not None:
             print("Step complete! Waiting for {0} second(s)...\n".format(wait))
             time.sleep(wait)
 
     # Run the inner product scan
-    yield from inner_product_scan([syn_signal], num, *args, per_step=per_step, 
-                                  md=md, **kwargs)
+    yield from inner_product_scan([], num, *args, per_step=per_step, md=md, 
+                                  **kwargs)
  
+def mcgrain_scan(outer_motor, inner_motor, sequencer, outer_start,
+                 outer_stop, outer_steps, inner_steps, wait=None):
+    """Relative scan nested into a normal scan, that starts the sequencer at
+    each inner step.
+
+    Performs a normal scan using the outer motor, and then performs a
+    relative scan within each outer motor step using the inner motor. The
+    sequencer is then triggered at every inner step in the scan.
+
+    Parameters
+    ----------
+    outer_motor : Motor
+        Motor to perform the outer normal scan
+
+    inner_motor : Motor
+        Motor to perform the inner relative scan
+
+    sequencer : Sequencer
+        Sequencer to trigger at every inner motor step
+
+    outer_start : float
+        Starting position of the outer motor
+
+    outer_start : float
+        Stopping position of the outer motor
+    
+    outer_start : float
+        Number of steps to take during the scan, including the endpoints
+
+    inner_steps : int or list
+        Number of relative steps to take at every outer step if an int. If it's
+        a list, it is the list of relative motions to perform at every outer
+        step
+
+    wait : float, optional
+        The amount of time to wait at each step     
+    """
+    # Create the list of relative motions that will be performed
+    if isinstance(inner_steps, int):
+        # If it is an int, create a list of unit motions of that length
+        inner_steps = [1] * inner_steps
+
+    # Define what will be done at every monochrometer step
+    def outer_per_step(detectors, motor, step):
+        # Move the monochrometer to the inputted energy
+        yield from abs_set(outer_motor, step, wait=True)
+
+        # Define what we will do at every motor step
+        def inner_per_step(detectors, motor, step):
+            # Move the motor to the inputted step
+            yield from rel_set(inner_motor, step, wait=True)
+            # Start and wait for the sequencer
+            yield from abs_set(sequencer.state_control, 1, wait=True)
+            # Wait the specified amount of time
+            if wait is not None:
+                print("Waiting for {0} second(s)...\n".format(wait))
+                time.sleep(wait)
+
+        # Define the larger inner scan as a list_scan. We cannot use
+        # rel_list_scan because it includes the reset_positions_decorator,
+        # which we do not want to do
+        yield from stub_wrapper(list_scan([], inner_motor, inner_steps,
+                                          per_step=inner_per_step))
+
+    # Perform the larger scan
+    yield from stub_wrapper(scan([], outer_motor, outer_start, outer_stop,
+                                 outer_steps, per_step=outer_per_step))
