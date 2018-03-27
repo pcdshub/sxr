@@ -21,6 +21,8 @@ from ophyd.tests.conftest import using_fake_epics_pv
 from bluesky.run_engine import RunEngine
 from bluesky.tests.conftest import RE
 
+from ..devices import McgrainPalette as McgPalette
+
 logger = logging.getLogger(__name__)
 
 # Define the requires epics
@@ -92,3 +94,19 @@ class SynSequencer(Device):
     Synthetic centroid signal.
     """
     state_control = Cpt(SynSignal, name='state control')
+
+
+class SynMotor(SynAxis):
+    def move(self, value, *args, **kwargs):
+        return self.set(value)
+
+
+class McgrainPalette(McgPalette):
+    x_motor = Cpt(SynMotor, name='LJE Sample X')
+    y_motor = Cpt(SynMotor, name='LJE Sample Y')
+    z_motor = Cpt(SynMotor, name='LJE Sample Z')
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for mot in self.motors:
+            mot.limits = (-np.inf, np.inf)
