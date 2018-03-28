@@ -1,12 +1,13 @@
 from functools import reduce
 import logging
 import numpy as np
+import time
 
 from ophyd.status import Status
 from ophyd.device import Device, Component as Cpt, FormattedComponent as FCpt
 from ophyd.signal import EpicsSignal, EpicsSignalRO, Signal
 from ophyd import PVPositioner
-from ophyd.status import wait as status_wait
+from ophyd.status import wait as status_wait, SubscriptionStatus
 
 from pcdsdevices.epics_motor import EpicsMotor, IMS
 from pcdsdevices.mv_interface import FltMvInterface
@@ -121,28 +122,33 @@ class Sequencer(Device):
         self._beam_owner_prefix = "ECS:SYS0:0"
         super().__init__(prefix, *args, **kwargs)
         self.timeout = timeout
+        self._cb_sleep = 0.0125
 
     def set(self, value, *args, **kwargs):
-        self.state_control.set(1, timeout=self.timeout)
-        status = SubscriptionStatus(self.play_count, 
-                                    self.play_count.get() + 1)
-        return status
+        """Set the sequencer start PV to the inputted value."""
+        def cb(*args, **kwargs):
+            time.sleep(self._cb_sleep)
+            return self.play_status.get() == 0
+        self.state_control.put(value)
+        return SubscriptionStatus(self.play_status, cb)
 
-    def start(self, wait=True):
+    def start(self, wait=False):
         """
         Start the sequencer.
         """
-        status = self.state_control.set(1, timeout=self.timeout)
+        status = self.set(1)
         if wait:
             status_wait(status)
+        return status
         
-    def stop(self, wait=True):
+    def stop(self, wait=False):
         """
         Stop the sequencer.
         """
-        status = self.state_control.set(0, timeout=self.timeout)
+        status = self.set(0)
         if wait:
             status_wait(status)        
+        return status
 
 
 class McgrainPalette(Device, FltMvInterface):
