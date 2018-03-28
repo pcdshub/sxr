@@ -219,16 +219,16 @@ def mcgrain_scan(outer_motor, inner_motor, sequencer, outer_start,
                                wait=True)
             # # Start and wait for the sequencer
             logger.debug('Inner: Starting the sequencer')
-            # yield from abs_set(sequencer, 1, wait=True)
+            yield from abs_set(sequencer, 1, wait=True)
 
             # Wait the specified amount of time
             if wait is not None:
                 print("Waiting for {0} second(s)...\n".format(wait))
                 time.sleep(wait)
 
-            logger.debug('Inner: Moving {0} by {1}.'.format(
+            logger.debug('Inner: Moving {0} to {1}.'.format(
                 inner_motor.name, inner_motor.index))
-
+ 
         # Define the larger inner scan as a list_scan. We cannot use
         # rel_list_scan because it includes the reset_positions_decorator,
         # which we do not want to do

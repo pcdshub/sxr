@@ -6,7 +6,9 @@ from pathlib import Path
 
 from bluesky import RunEngine
 from bluesky.preprocessors import run_wrapper
+from ophyd import Signal
 from ophyd.sim import SynAxis
+from ophyd.status import wait as status_wait, SubscriptionStatus
 
 from pcdsdevices.epics_motor import IMS, Newport
 from pcdsdaq.daq import Daq
@@ -105,18 +107,32 @@ def delay_scan_rel(start_rel, stop_rel, *args, **kwargs):
 
 def mcgrain_scan(mono_start, mono_stop, mono_steps, palette_steps, *args,
                  **kwargs):
-    yield from _mcgrain_scan(mono, palette, sequencer, mono_start, mono_stop,
+    yield from _mcgrain_scan(mono, pal, sequencer, mono_start, mono_stop,
                              mono_steps, palette_steps, *args, **kwargs)
+
+
+class ErrorIMS(IMS):
+    def move(self, *args, **kwargs):
+        try:
+            status = super().move(*args, **kwargs)
+        except RuntimeError:
+            pass
+        def cb(*args, **kwargs):
+            time.sleep(0.0125)
+            return np.isclose(self.user_setpoint.get(), self.user_readback.get(), atol=0.01)
+        return SubscriptionStatus(self.user_readback, cb)
+        
     
 # Devices
 vitara = Vitara("LAS:FS2:VIT", name="Vitara")
 delay = Newport("SXR:LAS:H1:DLS:01", name="Delay Stage")
-mono = IMS("SXR:MON:MMS:06", name="Monochrometer")
+mono = ErrorIMS("SXR:MON:MMS:06", name="Monochrometer")
 
 testMotor = SynAxis(name="Blah")
 sequencer = Sequencer("ECS:SYS0:2", name="sequencer")
 
 pal = McgrainPalette(name="palette")
+
 
 pal.accept_calibration(np.array([-9.54519187, -2.99960937, -2.          ]), 
                        np.array([ 12.57935063,  -2.89960937,  -2.        ]), 

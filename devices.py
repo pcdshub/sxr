@@ -2,6 +2,8 @@ from functools import reduce
 import logging
 import numpy as np
 import time
+from inspect import getdoc, getframeinfo, currentframe
+import IPython
 
 from ophyd.status import Status
 from ophyd.device import Device, Component as Cpt, FormattedComponent as FCpt
@@ -195,9 +197,15 @@ class McgrainPalette(Device, FltMvInterface):
         # Create a list of the different move functions we could use
         self.move_funcs = [self.move_1d, self.move_2d, self.move_3d]
 
-        # 
-        if invert:
-            self.invert()
+        # Calibration attributes
+        self.start_pt = None
+        self.n_pt = None
+        self.m_pt = None
+        self.calibration_coordinates = None
+        self.N_hat = None
+        self.M_hat = None
+        self.NM_hat = None
+        self.length_calibrated = None
 
     def calibrate_from_file(self, file_name):
         """Set calibration using a CalibFile or .csv saved from a CalibFile
@@ -259,6 +267,7 @@ class McgrainPalette(Device, FltMvInterface):
         self.start_pt = start_pt
         self.n_pt = n_pt
         self.m_pt = m_pt
+        self.calibration_coordinates = [self.start_pt, self.n_pt, self.m_pt]
 
         # Define unit vectors on the NM plane in XYZ space
         self.N_hat = (self.n_pt - self.start_pt) / (self.N - 1)
@@ -391,6 +400,62 @@ class McgrainPalette(Device, FltMvInterface):
         position = all_positions[len(args)-1]
         return self.mv(*(args + position), timeout=timeout, wait=wait)
 
+    def calibrate(self):
+        """Perform the calibration by moving the x, y, and z motors to each of 
+        the calibration coordinates.
+
+        The routine launches a shell with a limited number of available 
+        operations in the namespace. To move the motors, they have been made
+        avaiable as 'x', 'y', and 'z', aptly named after their coresponding
+        axes.
+
+        Additionally, there are several variables and functions available to 
+        assist in the process:
+
+            `h()` - Prints the directions on how to use the shell
+            `new_calibration` - Displays the points to be used in the current
+            `old_calibration`
+        """
+        raise NotImplementedError
+        # Gets a nicely formatted docstring
+        docstring = getdoc(getattr(self, getframeinfo(currentframe()).function))
+        new_calibration = []
+        
+        def shell():
+            # Provide the x, y, and z motors
+            x, y, z = self.x_motor, self.y_motor, self.z_motor
+            IPython.embed()
+
+        for i, point in enumerate(['first', 'second', 'third']):
+            if self.calibrated:
+                print('Moving to the {0} calibration point.'.format(point))
+                self.move(self.start_pt, wait=True)
+
+            # Allow the user to perform any new moves
+            while True:
+                # Drop into the shell to make the moves
+                print('Please move to the {0} calibration point, and exit the '
+                      'the new shell once in position. Enter `h()` for a help '
+                      'string.\n'.format(point))
+                shell()
+
+                current_position_str = 'Use current position {0} for the {1} ' \
+                  'calibration point? [y/n] '.format(self.coordinates, point)
+                # Get input from the user if this is a good point
+                response = input(current_position_str)
+                while response.lower() not in set('y', 'n'):
+                    # Keep probing until they enter y or n
+                    response = input('Invalid input "{0}". ' 
+                                     + current_position_str)
+                # If they are happy with the position, move on to the next point
+                if response.lower() == 'y':
+                    new_calibration.append(self.coordinates)
+                    break
+
+        # print('Are you sure you want to apply the new 
+
+        # self.accept_calibration(*calibration_coordinates)
+
     @property
     def coordinates(self):
         """Returns the x,y,z coordinates of the palette."""
@@ -423,9 +488,9 @@ class McgrainPalette(Device, FltMvInterface):
 
     def _chip_from_xyz(self, coordinates):
         start_diff = coordinates - self.start_pt
-        percent_complete = (np.dot(start_diff, self.M_hat)
+        self.percent_complete = (np.dot(start_diff, self.M_hat)
                             / np.sqrt(np.sum((self.m_pt - self.start_pt)**2)))
-        return self.M * percent_complete // self.samples_per_chip
+        return max(self.M * self.percent_complete // self.samples_per_chip, 0)
         
     @property
     def chip(self):
