@@ -226,8 +226,8 @@ def mcgrain_scan(outer_motor, inner_motor, sequencer, outer_start,
                 print("Waiting for {0} second(s)...\n".format(wait))
                 time.sleep(wait)
 
-            logger.debug('Inner: Moving {0} to {1}.'.format(
-                inner_motor.name, inner_motor.index))
+            logger.debug('Inner: Moving {0} to {1} (sample {2}).'.format(
+                inner_motor.name, inner_motor.index, inner_motor.position))
  
         # Define the larger inner scan as a list_scan. We cannot use
         # rel_list_scan because it includes the reset_positions_decorator,
