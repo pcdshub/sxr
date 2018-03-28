@@ -159,9 +159,12 @@ def a2_scan(num, *args, wait=None, md=None, **kwargs):
     # Run the inner product scan
     yield from inner_product_scan([], num, *args, per_step=per_step, md=md, 
                                   **kwargs)
+
+logger.debug = print
  
 def mcgrain_scan(outer_motor, inner_motor, sequencer, outer_start,
-                 outer_stop, outer_steps, inner_steps, wait=None):
+                 outer_stop, outer_steps, inner_steps, inner_step_size=1,
+                 wait=None):
     """Relative scan nested into a normal scan, that starts the sequencer at
     each inner step.
 
@@ -183,10 +186,10 @@ def mcgrain_scan(outer_motor, inner_motor, sequencer, outer_start,
     outer_start : float
         Starting position of the outer motor
 
-    outer_start : float
+    outer_stop : float
         Stopping position of the outer motor
     
-    outer_start : float
+    outer_steps : float
         Number of steps to take during the scan, including the endpoints
 
     inner_steps : int or list
@@ -205,24 +208,35 @@ def mcgrain_scan(outer_motor, inner_motor, sequencer, outer_start,
     # Define what will be done at every monochrometer step
     def outer_per_step(detectors, motor, step):
         # Move the monochrometer to the inputted energy
+        logger.debug('Outer: Moving {0} to {1}.'.format(outer_motor.name, step))
         yield from abs_set(outer_motor, step, wait=True)
 
         # Define what we will do at every motor step
         def inner_per_step(detectors, motor, step):
             # Move the motor to the inputted step
-            yield from rel_set(inner_motor, step, wait=True)
-            # Start and wait for the sequencer
-            yield from abs_set(sequencer.state_control, 1, wait=True)
+            yield from abs_set(inner_motor, 
+                               inner_motor.position + inner_step_size, 
+                               wait=True)
+            # # Start and wait for the sequencer
+            logger.debug('Inner: Starting the sequencer')
+            # yield from abs_set(sequencer, 1, wait=True)
+
             # Wait the specified amount of time
             if wait is not None:
                 print("Waiting for {0} second(s)...\n".format(wait))
                 time.sleep(wait)
+
+            logger.debug('Inner: Moving {0} by {1}.'.format(
+                inner_motor.name, inner_motor.index))
 
         # Define the larger inner scan as a list_scan. We cannot use
         # rel_list_scan because it includes the reset_positions_decorator,
         # which we do not want to do
         yield from stub_wrapper(list_scan([], inner_motor, inner_steps,
                                           per_step=inner_per_step))
+
+    # Set the sequencer to run once
+    yield from abs_set(sequencer.set_run_count_pattern, 0, wait=True)
 
     # Perform the larger scan
     yield from stub_wrapper(scan([], outer_motor, outer_start, outer_stop,

@@ -2,6 +2,7 @@ from functools import reduce
 import logging
 import numpy as np
 
+from ophyd.status import Status
 from ophyd.device import Device, Component as Cpt, FormattedComponent as FCpt
 from ophyd.signal import EpicsSignal, EpicsSignalRO, Signal
 from ophyd import PVPositioner
@@ -121,7 +122,13 @@ class Sequencer(Device):
         super().__init__(prefix, *args, **kwargs)
         self.timeout = timeout
 
-    def start(self,wait=True):
+    def set(self, value, *args, **kwargs):
+        self.state_control.set(1, timeout=self.timeout)
+        status = SubscriptionStatus(self.play_count, 
+                                    self.play_count.get() + 1)
+        return status
+
+    def start(self, wait=True):
         """
         Start the sequencer.
         """
@@ -129,7 +136,7 @@ class Sequencer(Device):
         if wait:
             status_wait(status)
         
-    def stop(self,wait=True):
+    def stop(self, wait=True):
         """
         Stop the sequencer.
         """
@@ -179,6 +186,10 @@ class McgrainPalette(Device, FltMvInterface):
         # This will be convenient
         self.motors = [self.x_motor, self.y_motor, self.z_motor]
 
+        # Create a list of the different move functions we could use
+        self.move_funcs = [self.move_1d, self.move_2d, self.move_3d]
+
+        # 
         if invert:
             self.invert()
 
@@ -303,10 +314,15 @@ class McgrainPalette(Device, FltMvInterface):
         """
         # Move each motor to the corresponding position and collect the status
         # objects in a list
-        status_list = [motor.move(val, timeout=timeout, wait=wait)
+        status_list = [motor.move(val, timeout=timeout, wait=False)
                        for motor, val in zip(self.motors, (x, y, z))]
+
         # Reduce the list to a single AndStatus
-        return reduce(lambda s1, s2: s1 & s2, status_list)
+        status = reduce(lambda s1, s2: s1 & s2, status_list)
+        
+        if wait:
+            status_wait(status)
+        return status
 
     def move_2d(self, i ,j, *, timeout=None, wait=False):
         """Move to point IJ in NM space.
@@ -347,10 +363,8 @@ class McgrainPalette(Device, FltMvInterface):
             raise ValueError('Cannot pass more than three inputs to move '
                              'command, got {0}'.format(len(args)))
 
-        # Create a list of the different move functions we could use
-        move_funcs = [self.move_1d, self.move_2d, self.move_3d]
         # Select the move function based on the number of arguments passed
-        return move_funcs[num_args-1](*args, timeout=timeout, wait=wait)
+        return self.move_funcs[num_args-1](*args, timeout=timeout, wait=wait)
 
     def stop(self):
         for motor in self.motors:
@@ -358,22 +372,18 @@ class McgrainPalette(Device, FltMvInterface):
 
     def set(self, *args, **kwargs):
         """Add compatibility with the abs_set plan in bluesky."""
-        return self.move(*args, **kwargs)     
+        return self.move(*args, **kwargs)
 
-    def mv(self, *args, wait=True, **kwargs):
+    def mv(self, *args, wait=True, timeout=None):
         """Performs the standard mv but stops the motors on KeyboardInturrupts
         if waiting for the move to complete.
         """
-        status = super().mv(*args, **kwargs)
+        self.move(*args, timeout=timeout, wait=wait)
 
-        if wait:
-            try:
-                status_wait(status)
-            except KeyboardInterrupt:
-                self.stop()
-                raise
-
-        return status
+    def mvr(self, *args, timeout=None, wait=True):
+        all_positions = [self.position, self.index, self.coordinates]
+        position = all_positions[len(args)-1]
+        return self.mv(*(args + position), timeout=timeout, wait=wait)
 
     @property
     def coordinates(self):
@@ -386,9 +396,8 @@ class McgrainPalette(Device, FltMvInterface):
         start_diff = self.coordinates - self.start_pt
         raw_index = np.round(
             np.dot(start_diff, self.NM_hat)
-            - np.array([
-                 0, 
-                 self.chip*self.chip_factor*self.length_calibrated]))
+            - np.array([0, 
+                        self.chip*self.chip_factor*self.length_calibrated]))
         return raw_index.astype(int)
 
     @property
