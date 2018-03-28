@@ -1,3 +1,4 @@
+from functools import reduce
 import logging
 import numpy as np
 
@@ -85,9 +86,7 @@ class Sequencer(Device):
 
     photon_beam_owner_name : Component
         Enum beam owner
-    
     """
-
     # left-most column
     state_control = Cpt(EpicsSignal, ":PLYCTL")
     set_run_count_pattern = Cpt(EpicsSignal, ":PLYMOD")
@@ -139,70 +138,70 @@ class Sequencer(Device):
             status_wait(status)        
 
 
-class ConsolidatedSamplePalette(Device):
-    '''
-    
-    '''
-    x_motor = Cpt(IMS,"{self._xmotor_prefix}:{self._xmotor_suffix}")
-    y_motor = Cpt(IMS,"{self._ymotor_prefix}:{self._ymotor_suffix}")
-    z_motor = Cpt(IMS,"{self._zmotor_prefix}:{self._zmotor_suffix}")
+class McgrainPalette(Device, FltMvInterface):
+    """Base device for the mcgrain  paddle"""
+    x_motor = Cpt(IMS, "SXR:EXP:MMS:08", name='LJE Sample X')
+    y_motor = Cpt(IMS, "SXR:EXP:MMS:10", name='LJE Sample Y')
+    z_motor = Cpt(IMS, "SXR:EXP:MMS:11", name='LJE Sample Z')
 
-
-    def __init__(self, prefix, N_dim=1, M_dim=1, timeout=1, motor_timeout=5,
-                samples=None, *args, **kwargs):
-        '''
-        N_dim : int
+    def __init__(self, N=23, M=(24*3 + 8), chip_spacing=2.4, sample_spacing=1.0,
+                 timeout=1,  samples_per_chip=24, invert=False, 
+                 *args, **kwargs):
+        """
+        N : int
             specify the number of samples in the N direction
 
-        M_dim : int
+        M : int
             specify the number of samples in the M direction
-        '''
-        
-        self._xmotor_prefix = None
-        self._ymotor_prefix = None
-        self._zmotor_prefix = None
-        self._xmotor_suffix = None
-        self._ymotor_suffix = None        
-        self._zmotor_suffix = None       
-
-        super().__init__(prefix, *args, **kwargs)
+        """
+        super().__init__('', *args, **kwargs)
         self.timeout = timeout
-        self.motor_timeout = motor_timeout
 
         self.calibrated = False
 
         # How many samples are there in the N and M directions
-        self.N_dim = N_dim
-        self.M_dim = M_dim
+        self.N = N
+        self.M = M
+
+        self.samples_per_chip = samples_per_chip 
+        self.chip_spacing = chip_spacing
+        self.sample_spacing = sample_spacing
+        self.num_chips = self.M // self.samples_per_chip
+        self.length = ((self.M - self.num_chips - 1)*self.sample_spacing 
+                       + self.num_chips * self.chip_spacing)
+
+        self.chip_factor = (self.chip_spacing - self.sample_spacing)/self.length
 
         # if the number of samples on the pallete is not given, presume full
         # matrix allotment 
-        if samples == None:
-            self.samples = self.N_dim * self.M_dim
-        else:
-            self.samples = samples
+        self.samples = self.N * self.M
 
-    def calibrate_from_file(self,file_name):
-        '''
-        Set calibration using a CalibFile or .csv saved from a CalibFile
+        # This will be convenient
+        self.motors = [self.x_motor, self.y_motor, self.z_motor]
+
+        if invert:
+            self.invert()
+
+    def calibrate_from_file(self, file_name):
+        """Set calibration using a CalibFile or .csv saved from a CalibFile
 
         Parameters
         ----------
         file_name : str or CalibFile
             Either pass the name of the .csv saved from a CalibFile or pass the
             CalibFile direcly.
-        '''
+        """
         data_file = CalibFile(file_name)
         self.accept_calibration(
-            N = data_file.N,
-            M = data_file.M,
-            start_pt = data_file.start_pt,
-            n_pt = data_file.n_pt,
-            m_pt = data_file.m_pt
+            N=data_file.N,
+            M=data_file.M,
+            start_pt=data_file.start_pt,
+            n_pt=data_file.n_pt,
+            m_pt=data_file.m_pt
         )
 
-    def accept_calibration(self,N,M,start_pt,n_pt,m_pt):
-        '''
+    def accept_calibration(self, start_pt, n_pt, m_pt):
+        """
         Notes on coordinates:
         
         Z points upstream along the beam, X points horizontally, Y points
@@ -217,10 +216,10 @@ class ConsolidatedSamplePalette(Device):
         K represents samples along the snake-shaped scanning path. 
 
 
-        n : int
+        n_steps : int
             Number of samples stepped over in the N axis for calibration
 
-        m : int 
+        m_steps : int 
             Number of samples stepped over in the M axis for calibration
 
         start_pt : np.array or pd.Series
@@ -234,112 +233,63 @@ class ConsolidatedSamplePalette(Device):
         m_pt : np.array or pd.Series
             3-length iterable (x,y,z) specifying spatial coordinate of the
             fiducial smaple on the M ais
-        '''
+        """
         if self.calibrated:
             logger.warning("WARNING: Overriding existing calibration!")
         
         self.calibrated = True
-
         # save the origin point in XYZ space
         self.start_pt = start_pt
+        self.n_pt = n_pt
+        self.m_pt = m_pt
 
         # Define unit vectors on the NM plane in XYZ space
-        self.N_hat = (n_pt - self.start_pt) / N
-        self.M_hat = (m_pt - self.start_pt) / M
+        self.N_hat = (self.n_pt - self.start_pt) / (self.N - 1)
+        # Correct for the chip spacing when calculating the M_hat
+        self.M_hat = (((self.m_pt - self.start_pt)
+                       * (1 - self.num_chips*self.chip_factor))
+                      / (self.M - 1))
+        # Put both N_hat and M_hat in an array
+        self.NM_hat = np.concatenate((self.N_hat.reshape(len(self.motors), 1), 
+                                      self.M_hat.reshape(len(self.motors), 1)), 
+                                     axis=1)
+
+        self.length_calibrated = np.sqrt(np.sum((self.m_pt - self.start_pt)**2))
 
     def locate_2d(self, i, j):
-        '''
-        return XYZ coordinates of sample i,j
+        """Return XYZ coordinates of sample i, j
 
+        Parameters
+        ----------
         i : int
+            The i coordinate to move to on the palette
 
         j : int
-        '''
-        target_pt = self.start_pt + i * self.N_hat + j * self.M_hat
-        return target_pt
+            The j coordinate to move to on the palette
+        """
+        return (self.start_pt + i*self.N_hat + j*self.M_hat 
+                + self._chip_from_j(j)*self.chip_factor
+                * (self.m_pt - self.start_pt))
 
     def locate_1d(self, k):
-        '''
-        return NM coordinates of sample k
+        """Return NM coordinates of sample k
 
+        Parameters
+        ----------
         k : int
-        '''
-
+            The 1D position to move the motor to
+        """
         # calculate the horizontal row
-        j = int(np.floor(k/self.N_dim))
-
+        j = int(np.floor(k / (self.N)))
         # calculate the column w/o snake-wrapping
-        i = k % self.N_dim
-
+        i = k % (self.N)
         # apply snake-wrapping to odd columns by reversing pathing order 
-        if j % 2 :
-            i = (self.N_dim - i) - 1  
+        if j % 2:
+            i = (self.N - i) - 1
+        return np.array([i, j])
 
-        return np.array([i,j])
-
-    def move_to_sample_2d(self, i ,j, timeout=None, wait=True):
-        '''
-        Move to point IJ in NM space.
-        
-        i : int
-        
-        j : int
-
-        timeout : int
-
-        wait : bool
-        '''
-        if timeout == None:
-            timeout = self.timeout
-
-        XYZ_target = self.locate_2d(i,j)
-        status = self.mv(*XYZ_target,timeout=timeout,wait=wait)
-        return status
-
-    def move_to_sample_1d(self, k, timeout=None, wait=True):
-        '''
-        Move to point K in the sampling path space
-        
-        k : int
-
-        timeout : int
-
-        wait : bool
-        '''
-        if timeout == None:
-            timeout = self.timeout
-
-        IJ_target = self.locate_1d(k)
-        status = self.move_to_sample_2d(*IJ_target,timeout=timeout,wait=wait)
-        return status
-
-    def move(self, k, timeout=None, wait=True):
-        '''
-        Wrap move_to_sample_1d under a common name.
-        
-        k : int
-
-        timeout : int
-
-        wait : bool
-        '''
-        if timeout == None:
-            timeout = self.timeout
-
-        status = self.move_to_sample_1d(self, k, timeout=timeout,wait=wait)
-        return status
-
-    def set(self, k, timeout=None, wait=True):
-        '''
-        Add compatibility with the abs_set plan in bluesky
-        '''
-        if timeout == None:
-            timeout = self.timeout
-        return self.move(k,timeout=timeout,wait=wait) 
-    
-    def mv(self, x, y, z, timeout=None,wait=True):
-        '''
-        Move to given XYZ coordinate
+    def move_3d(self, x, y, z, *, timeout=None, wait=False):
+        """Move to given XYZ coordinate
 
         x : float
 
@@ -350,24 +300,125 @@ class ConsolidatedSamplePalette(Device):
         timeout : int
 
         wait : bool
-        '''
-        if timeout == None:
-            timeout = self.timeout
+        """
+        # Move each motor to the corresponding position and collect the status
+        # objects in a list
+        status_list = [motor.move(val, timeout=timeout, wait=wait)
+                       for motor, val in zip(self.motors, (x, y, z))]
+        # Reduce the list to a single AndStatus
+        return reduce(lambda s1, s2: s1 & s2, status_list)
 
-        status_x = self.x_motor.move(x, timeout=timeout)
-        status_y = self.y_motor.move(y, timeout=timeout)
-        status_z = self.z_motor.move(z, timeout=timeout)
+    def move_2d(self, i ,j, *, timeout=None, wait=False):
+        """Move to point IJ in NM space.
+        
+        i : int
+        
+        j : int
 
-        all_status = status_x & status_y & status_z
+        timeout : int
+
+        wait : bool
+        """
+        return self.move_3d(*self.locate_2d(i, j), timeout=timeout, wait=wait)
+
+    def move_1d(self, k, *, timeout=None, wait=False):
+        """Move to point K in the sampling path space
+        
+        k : int
+
+        timeout : int
+
+        wait : bool
+        """
+        return self.move_2d(*self.locate_1d(k), timeout=timeout, wait=wait)
+            
+    def move(self, *args, timeout=None, wait=False):
+        """Wrap move_1d under a common name.
+        
+        k : int
+
+        timeout : int
+
+        wait : bool
+        """
+        num_args = len(args)
+        # Make sure we get the right number of arguments
+        if num_args > 3:
+            raise ValueError('Cannot pass more than three inputs to move '
+                             'command, got {0}'.format(len(args)))
+
+        # Create a list of the different move functions we could use
+        move_funcs = [self.move_1d, self.move_2d, self.move_3d]
+        # Select the move function based on the number of arguments passed
+        return move_funcs[num_args-1](*args, timeout=timeout, wait=wait)
+
+    def stop(self):
+        for motor in self.motors:
+            motor.stop()
+
+    def set(self, *args, **kwargs):
+        """Add compatibility with the abs_set plan in bluesky."""
+        return self.move(*args, **kwargs)     
+
+    def mv(self, *args, wait=True, **kwargs):
+        """Performs the standard mv but stops the motors on KeyboardInturrupts
+        if waiting for the move to complete.
+        """
+        status = super().mv(*args, **kwargs)
 
         if wait:
             try:
-                status_wait(all_status)
+                status_wait(status)
             except KeyboardInterrupt:
-                self.x_motor.stop()
-                self.y_motor.stop()
-                self.z_motor.stop()
+                self.stop()
                 raise
 
-        return all_status
-            
+        return status
+
+    @property
+    def coordinates(self):
+        """Returns the x,y,z coordinates of the palette."""
+        return np.array([motor.position for motor in self.motors])
+
+    @property
+    def index(self):
+        """Returns the i,j palette position based on the current coordinates."""
+        start_diff = self.coordinates - self.start_pt
+        raw_index = np.round(
+            np.dot(start_diff, self.NM_hat)
+            - np.array([
+                 0, 
+                 self.chip*self.chip_factor*self.length_calibrated]))
+        return raw_index.astype(int)
+
+    @property
+    def position(self):
+        """Returns the current sample number."""
+        i, j = self.index
+        return j*self.N + (self.N - i - 1 if j%2 else i)
+
+    @property
+    def remaining(self):
+        """Returns the remaining number of samples."""
+        return self.samples - self.position - 1
+
+    def _chip_from_j(self, j):
+        """Returns the chip number based on the inputted column."""
+        return j // self.samples_per_chip
+
+    def _chip_from_xyz(self, coordinates):
+        start_diff = coordinates - self.start_pt
+        percent_complete = (np.dot(start_diff, self.M_hat)
+                            / np.sqrt(np.sum((self.m_pt - self.start_pt)**2)))
+        return self.M * percent_complete // self.samples_per_chip
+        
+    @property
+    def chip(self):
+        """Returns the current chip position."""
+        return int(self._chip_from_xyz(self.coordinates))
+
+    # def invert(self):
+    #     self.N, self.M = self.M, self.N
+    #     if hasattr(self, 'N_hat'):
+    #         self.N_hat, self.M_hat = self.M_hat, self.N_hat
+    #         self.NM_hat = np.flip(self.NM_hat, axis=1)

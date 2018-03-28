@@ -12,7 +12,7 @@ from pcdsdevices.epics_motor import IMS, Newport
 from pcdsdaq.daq import Daq
 
 from plans import delay_scan as _delay_scan, mcgrain_scan as _mcgrain_scan
-from devices import Newport, Vitara, Sequencer, ConsolidatedSamplePalette
+from devices import Vitara, Sequencer, McgrainPalette
 from exceptions import InputError
 
 
@@ -116,9 +116,11 @@ mono = IMS("SXR:MON:MMS:06", name="Monochrometer")
 testMotor = SynAxis(name="Blah")
 sequencer = Sequencer("ECS:SYS0:2", name="sequencer")
 
-sample_dims = np.array([10,10])
-palette = ConsolidatedSamplePalette("", name="palette", *sample_dims)
+pal = McgrainPalette(name="palette")
 
+pal.accept_calibration(np.array([-9.54519187, -2.99960937, -2.          ]), 
+                       np.array([ 12.57935063,  -2.89960937,  -2.        ]), 
+                       np.array([ -9.24544125, -86.26064453,  -2.        ]))
 
 # Run Engine
 RE = RunEngine({})
