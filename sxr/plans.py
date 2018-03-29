@@ -6,8 +6,6 @@ from bluesky.plan_stubs import one_nd_step, abs_set, rel_set, wait as plan_wait
 from bluesky.plans import scan, inner_product_scan, list_scan
 from bluesky.preprocessors import stub_wrapper
 
-from utils import retry
-
 logger = logging.getLogger(__name__)
 
 c = 299792458 * 1000 * 1e-9                           # mm/ns
@@ -100,7 +98,6 @@ def a2_daq_scan(daq, num, *args, events_per_point=1000, record=False,
     events = events_per_point
 
     # Define what to do at each step
-    # @retry(Exception, tries=5)
     def per_step(detectors, motor, step):
         for m, pos in motor.items():
             print("Moving '{0}' to {1}".format(m.name, pos))
@@ -164,7 +161,7 @@ logger.debug = print
  
 def mcgrain_scan(outer_motor, inner_motor, sequencer, outer_start,
                  outer_stop, outer_steps, inner_steps, inner_step_size=1,
-                 wait=None):
+                 use_sequencer=True, wait=None):
     """Relative scan nested into a normal scan, that starts the sequencer at
     each inner step.
 
@@ -208,26 +205,26 @@ def mcgrain_scan(outer_motor, inner_motor, sequencer, outer_start,
     # Define what will be done at every monochrometer step
     def outer_per_step(detectors, motor, step):
         # Move the monochrometer to the inputted energy
-        logger.debug('Outer: Moving {0} to {1}.'.format(outer_motor.name, step))
+        logger.debug('Outer Step: Moving {0} to {1}.'.format(
+            outer_motor.name, step))
         yield from abs_set(outer_motor, step, wait=True)
 
         # Define what we will do at every motor step
         def inner_per_step(detectors, motor, step):
             # Move the motor to the inputted step
-            yield from abs_set(inner_motor, 
-                               inner_motor.position + inner_step_size, 
-                               wait=True)
-            # # Start and wait for the sequencer
-            logger.debug('Inner: Starting the sequencer')
-            yield from abs_set(sequencer, 1, wait=True)
+            yield from rel_set(inner_motor, inner_step_size, wait=True)
+            logger.debug('Inner Step: Moved {0} to {1} (sample {2}).'.format(
+                inner_motor.name, inner_motor.index, inner_motor.position))
+
+            if use_sequencer:
+                # # Start and wait for the sequencer
+                logger.debug('Inner Step: Starting the sequencer')
+                yield from abs_set(sequencer, 1, wait=True)
 
             # Wait the specified amount of time
             if wait is not None:
-                print("Waiting for {0} second(s)...\n".format(wait))
+                logger.debug("Waiting for {0} second(s)...".format(wait))
                 time.sleep(wait)
-
-            logger.debug('Inner: Moving {0} to {1} (sample {2}).'.format(
-                inner_motor.name, inner_motor.index, inner_motor.position))
  
         # Define the larger inner scan as a list_scan. We cannot use
         # rel_list_scan because it includes the reset_positions_decorator,
@@ -235,8 +232,9 @@ def mcgrain_scan(outer_motor, inner_motor, sequencer, outer_start,
         yield from stub_wrapper(list_scan([], inner_motor, inner_steps,
                                           per_step=inner_per_step))
 
-    # Set the sequencer to run once
-    yield from abs_set(sequencer.set_run_count_pattern, 0, wait=True)
+    # # Set the sequencer to run once
+    if use_sequencer:
+        yield from abs_set(sequencer.set_run_count_pattern, 0, wait=True)
 
     # Perform the larger scan
     yield from stub_wrapper(scan([], outer_motor, outer_start, outer_stop,

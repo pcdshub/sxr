@@ -14,9 +14,22 @@ from ophyd.status import wait as status_wait, SubscriptionStatus
 from pcdsdevices.epics_motor import EpicsMotor, IMS
 from pcdsdevices.mv_interface import FltMvInterface
 
-from calib_file import CalibFile
+from .calib_file import CalibFile
 
 logger = logging.getLogger(__name__)
+
+
+class ErrorIMS(IMS):
+    def move(self, *args, **kwargs):
+        try:
+            status = super().move(*args, **kwargs)
+        except RuntimeError:
+            pass
+        def cb(*args, **kwargs):
+            time.sleep(0.0125)
+            return np.isclose(self.user_setpoint.get(), 
+                              self.user_readback.get(), atol=0.01)
+        return SubscriptionStatus(self.user_readback, cb)
 
 
 class Vitara(Device, FltMvInterface):
@@ -389,11 +402,14 @@ class McgrainPalette(Device, FltMvInterface):
         """Add compatibility with the abs_set plan in bluesky."""
         return self.move(*args, **kwargs)
 
-    def mv(self, *args, wait=True, timeout=None):
+    def mv(self, *args, timeout=None, wait=True):
         """Performs the standard mv but stops the motors on KeyboardInturrupts
         if waiting for the move to complete.
         """
+        prior = (self.index, self.position)
         self.move(*args, timeout=timeout, wait=wait)
+        logger.info('Moved {0} to from {1} (Sample {2}) to {3} (Sample {4})'
+                    ''.format(self.name, *prior, self.index, self.position))
 
     def mvr(self, *args, timeout=None, wait=True):
         all_positions = [self.position, self.index, self.coordinates]

@@ -1,0 +1,22 @@
+
+The objects referenced in this file are populated by the sxrpython
+
+initialization. If you wish to use devices from this file, import
+
+them from sxr.db after calling the sxrpython startup script.
+
+
+hutch-python last loaded on 2018-03-28 17:38:44.493763
+with the following objects:
+
+RE                   <class 'bluesky.run_engine.RunEngine'>
+plans                <class 'module'>
+p                    <class 'module'>
+daq                  <class 'pcdsdaq.daq.Daq'>
+sxr_beampath         <class 'lightpath.path.BeamPath'>
+safe_load            <class 'function'>
+x                    <class 'experiments.lr5816.User'>
+sxr                  <class 'hutch_python.utils.IterableNamespace'>
+safe                 <class 'hutch_python.utils.IterableNamespace'>
+all_objects          <class 'hutch_python.utils.IterableNamespace'>
+a                    <class 'hutch_python.utils.IterableNamespace'>
