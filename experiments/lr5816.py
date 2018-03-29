@@ -41,10 +41,13 @@ class User(object):
         
         # Save the dataframe
         if df_name:
-            df_path = Path('/reg/neh/operator/sxropr/mcgrain_scans') / df_name
+            df_path = Path(
+                '~sxropr/experiments/sxrlr5816/mcgrain_scans') / df_name
             # Make the parent directory if it doesnt exist 
             if not df_path.parent.exists():
                 df_path.parent.mkdir()
+                df_path.parent.chmod(0o777)
+
             # Create the directories if they dont exist
             logger.info('Saving scan to "{0}"'.format(str(df_path)))
             df.to_csv(str(df_path))
