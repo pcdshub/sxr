@@ -173,8 +173,7 @@ class McgrainPalette(Device, FltMvInterface):
     z_motor = Cpt(IMS, "SXR:EXP:MMS:11", name='LJE Sample Z')
 
     def __init__(self, N=(24*3 + 8), M=23, chip_spacing=2.4, sample_spacing=1.0,
-                 timeout=1,  chip_dims=[8,24,24,24], invert=False, 
-                 *args, **kwargs):
+                 timeout=1,  chip_dims=[8,24,24,24], *args, **kwargs):
         """
         N : int
             specify the number of samples in the N direction
@@ -577,9 +576,3 @@ class McgrainPalette(Device, FltMvInterface):
     def chip(self):
         """Returns the current chip position."""
         return int(self._chip_from_xyz(self.coordinates))
-
-    # def invert(self):
-    #     self.N, self.M = self.M, self.N
-    #     if hasattr(self, 'N_hat'):
-    #         self.N_hat, self.M_hat = self.M_hat, self.N_hat
-    #         self.NM_hat = np.flip(self.NM_hat, axis=1)
