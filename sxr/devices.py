@@ -172,7 +172,7 @@ class McgrainPalette(Device, FltMvInterface):
     y_motor = Cpt(IMS, "SXR:EXP:MMS:10", name='LJE Sample Y')
     z_motor = Cpt(IMS, "SXR:EXP:MMS:11", name='LJE Sample Z')
 
-    def __init__(self, N=23, M=(24*3 + 8), chip_spacing=2.4, sample_spacing=1.0,
+    def __init__(self, N=(24*3 + 8), M=23, chip_spacing=2.4, sample_spacing=1.0,
                  timeout=1,  chip_dims=[8,24,24,24], invert=False, 
                  *args, **kwargs):
         """
@@ -194,19 +194,19 @@ class McgrainPalette(Device, FltMvInterface):
         # Dimensions of the chips
         self.chip_dims = chip_dims
 
-        if self.M != sum(self.chip_dims):
+        if self.N != sum(self.chip_dims):
             raise InputError('Inputted differing number of samples in M as the '
                              'number of samples in the chip dimensions. Got '
                              '{0} and {1} (sum {2}).'.format(
-                                 self.M, self.chip_dims, sum(self.chip_dims)))
-        self.chip_dims_percents = [sum(self.chip_dims[:i+1]) / self.M
+                                 self.N, self.chip_dims, sum(self.chip_dims)))
+        self.chip_dims_percents = [sum(self.chip_dims[:i+1]) / self.N
                                    for i in range(len(self.chip_dims))]
 
         self.chip_spacing = chip_spacing
         self.sample_spacing = sample_spacing
 
         self.num_chips = len(self.chip_dims) - 1
-        self.length = ((self.M - self.num_chips - 1)*self.sample_spacing 
+        self.length = ((self.N - self.num_chips - 1)*self.sample_spacing 
                        + self.num_chips * self.chip_spacing)
 
         self.chip_factor = (self.chip_spacing - self.sample_spacing)/self.length
@@ -249,7 +249,7 @@ class McgrainPalette(Device, FltMvInterface):
             m_pt=data_file.m_pt
         )
 
-    def accept_calibration(self, start_pt, n_pt, m_pt):
+    def accept_calibration(self, start_pt, n_pt, m_pt, confirm_overwrite=False):
         """
         Notes on coordinates:
         
@@ -283,8 +283,18 @@ class McgrainPalette(Device, FltMvInterface):
             3-length iterable (x,y,z) specifying spatial coordinate of the
             fiducial smaple on the M ais
         """
-        if self.calibrated:
-            logger.warning("WARNING: Overriding existing calibration!")
+        if self.calibrated and confirm_overwrite:
+            # Get input from the user if they really want to calibrate
+            prompt_str = 'Are you sure you want to overwrite the current ' \
+              'calibration ([y]/n)? '
+            response = input(prompt_str)
+            while response.lower() not in set(['y', 'n']):
+                # Keep probing until they enter y or n
+                response = input('Invalid input "{0}". ' + prompt_str) 
+                # If they are happy with the position, move on to the next point
+            if response.lower() == 'n':
+                logger.info('Canceling calibration.')
+                return
         
         self.calibrated = True
         # save the origin point in XYZ space
@@ -294,17 +304,19 @@ class McgrainPalette(Device, FltMvInterface):
         self.calibration_coordinates = [self.start_pt, self.n_pt, self.m_pt]
 
         # Define unit vectors on the NM plane in XYZ space
-        self.N_hat = (self.n_pt - self.start_pt) / (self.N - 1)
-        # Correct for the chip spacing when calculating the M_hat
-        self.M_hat = (((self.m_pt - self.start_pt)
+        self.N_hat = (((self.n_pt - self.start_pt) 
                        * (1 - self.num_chips*self.chip_factor))
-                      / (self.M - 1))
+                      / (self.N - 1))
+
+        # Correct for the chip spacing when calculating the M_hat
+        self.M_hat = (self.m_pt - self.start_pt) / (self.M - 1)
         # Put both N_hat and M_hat in an array
         self.NM_hat = np.concatenate((self.N_hat.reshape(len(self.motors), 1), 
                                       self.M_hat.reshape(len(self.motors), 1)), 
                                      axis=1)
 
-        self.length_calibrated = np.sqrt(np.sum((self.m_pt - self.start_pt)**2))
+        self.length_calibrated = np.sqrt(np.sum((self.n_pt - self.start_pt)**2))
+        logger.info('Successfully calibrated "{0}"'.format(self.name))
 
     def locate_2d(self, i, j):
         """Return XYZ coordinates of sample i, j
@@ -318,8 +330,8 @@ class McgrainPalette(Device, FltMvInterface):
             The j coordinate to move to on the palette
         """
         return (self.start_pt + i*self.N_hat + j*self.M_hat 
-                + self._chip_from_j(j)*self.chip_factor
-                * (self.m_pt - self.start_pt))
+                + self._chip_from_i(i)*self.chip_factor
+                * (self.n_pt - self.start_pt))
 
     def locate_1d(self, k):
         """Return NM coordinates of sample k
@@ -330,12 +342,13 @@ class McgrainPalette(Device, FltMvInterface):
             The 1D position to move the motor to
         """
         # calculate the horizontal row
-        j = int(np.floor(k / (self.N)))
+        i = int(np.floor(k / (self.M)))
         # calculate the column w/o snake-wrapping
-        i = k % (self.N)
+        j = k % (self.M)
         # apply snake-wrapping to odd columns by reversing pathing order 
-        if j % 2:
-            i = (self.N - i) - 1
+        if i % 2:
+            j = (self.M - j) - 1
+
         return np.array([i, j])
 
     def move_3d(self, x, y, z, *, timeout=None, wait=False):
@@ -435,57 +448,87 @@ class McgrainPalette(Device, FltMvInterface):
         """Perform the calibration by moving the x, y, and z motors to each of 
         the calibration coordinates.
 
-        The routine launches a shell with a limited number of available 
+        The routine launches a shell with a limited number of permitted
         operations in the namespace. To move the motors, they have been made
-        avaiable as 'x', 'y', and 'z', aptly named after their coresponding
-        axes.
+        avaiable as 'x', 'y', and 'z', aptly named after the coresponding axes.
+        To operate the motors, use the following methods and properties:
+
+            `motor.mv()` - Move the desired motor to the inputted absolute
+                           position.
+            `motor.mvr()` - Move the desired motor using the inputted relative
+                            position.
+            `motor.position` - Print the current position of the motor.
 
         Additionally, there are several variables and functions available to 
         assist in the process:
 
-            `h()` - Prints the directions on how to use the shell
-            `new_calibration` - Displays the points to be used in the current
-            `old_calibration`
+            `move()` - Moves all three motors at the same time. Takes the 
+                       desired positions of all three motors as arguments.
+            `stop()` - Stops the motion of all the motors.
+            `positions()` - Returns the positions of all three motors.
+            'h()` - Prints this docstring as a help message.
+
+        To exit the calibration routine, simply raise a KeyboardInterrupt by
+        hitting ctrl + c.
         """
-        raise NotImplementedError
         # Gets a nicely formatted docstring
         docstring = getdoc(getattr(self, getframeinfo(currentframe()).function))
         new_calibration = []
         
         def shell():
             # Provide the x, y, and z motors
+            move = self.move_3d
+            positions = lambda : self.coordinates
+            h = lambda : print(docstring)
             x, y, z = self.x_motor, self.y_motor, self.z_motor
             IPython.embed()
 
-        for i, point in enumerate(['first', 'second', 'third']):
-            if self.calibrated:
-                print('Moving to the {0} calibration point.'.format(point))
-                self.move(self.start_pt, wait=True)
+        calibration_coordinate_str = ['[0, 0]', 
+                                      '[{0}, 0]'.format(self.N-1), 
+                                      '[0, {0}]'.format(self.M-1)]
 
-            # Allow the user to perform any new moves
-            while True:
-                # Drop into the shell to make the moves
-                print('Please move to the {0} calibration point, and exit the '
-                      'the new shell once in position. Enter `h()` for a help '
-                      'string.\n'.format(point))
-                shell()
+        try:
+            print(docstring)
+            for i, coordinate in enumerate(calibration_coordinate_str):
+                if self.calibrated:
+                    logger.info('Moving to the previous {0} calibration '
+                                'point... Raise KeyboardInterrupt to stop the '
+                                'motion.\n'.format(coordinate))
+                    try: 
+                        self.move(*self.calibration_coordinates[i], wait=True)
+                    except KeyboardInterrupt:
+                        logger.info('Stopping motor.')
+                        self.stop()
 
-                current_position_str = 'Use current position {0} for the {1} ' \
-                  'calibration point? [y/n] '.format(self.coordinates, point)
-                # Get input from the user if this is a good point
-                response = input(current_position_str)
-                while response.lower() not in set('y', 'n'):
-                    # Keep probing until they enter y or n
-                    response = input('Invalid input "{0}". ' 
-                                     + current_position_str)
-                # If they are happy with the position, move on to the next point
-                if response.lower() == 'y':
-                    new_calibration.append(self.coordinates)
-                    break
+                # Allow the user to perform any new moves
+                while True:
+                    # Drop into the shell to make the moves
+                    logger.info('Please set the center of the {0} sample to be '
+                                'in the middle of the beampath. Once complete, '
+                                'exit the shell. Enter `h()` for a help string.'
+                                '\n'.format(coordinate))
+                    shell()
 
-        # print('Are you sure you want to apply the new 
+                    current_position_str = 'Use current position {0} for the ' \
+                      '{1} calibration point ([y]/n)? '.format(
+                          self.coordinates, coordinate)
+                    # Get input from the user if this is a good point
+                    response = input(current_position_str)
+                    while response.lower() not in set(['y', 'n']):
+                        # Keep probing until they enter y or n
+                        response = input('Invalid input "{0}". ' 
+                                         + current_position_str)
+                    # If they are happy with the position, move on to the next 
+                    # point
+                    if response.lower() == 'y':
+                        new_calibration.append(self.coordinates)
+                        break
 
-        # self.accept_calibration(*calibration_coordinates)
+            # Always prompt the user about overwriting the calibration
+            self.accept_calibration(*new_calibration, confirm_overwrite=True)
+
+        except KeyboardInterrupt:
+            logger.info('Exitting calibration routine.')
 
     @property
     def coordinates(self):
@@ -495,38 +538,39 @@ class McgrainPalette(Device, FltMvInterface):
     @property
     def index(self):
         """Returns the i,j palette position based on the current coordinates."""
-        start_diff = self.coordinates - self.start_pt
-        raw_index = np.round(
-            np.dot(start_diff, self.NM_hat)
-            - np.array([0, 
-                        self.chip*self.chip_factor*self.length_calibrated]))
-        return raw_index.astype(int)
+        self.start_diff = self.coordinates - self.start_pt
+        self.raw_index = np.round(
+            np.dot(self.start_diff, self.NM_hat) 
+            - np.array([self.chip*self.chip_factor*self.length_calibrated, 0]))
+        
+        # The returned index should never exceed the total number of samples
+        return np.minimum(self.raw_index, [self.N-1, self.M-1]).astype(int)
 
     @property
     def position(self):
         """Returns the current sample number."""
         i, j = self.index
-        return j*self.N + (self.N - i - 1 if j%2 else i)
+        return i*self.M + (self.M - j - 1 if i%2 else j)
 
     @property
     def remaining(self):
         """Returns the remaining number of samples."""
         return self.samples - self.position - 1
 
-    def _chip_from_j(self, j):
+    def _chip_from_i(self, i):
         """Returns the chip number based on the inputted column."""
-        for i, val in enumerate(self.chip_dims):
-            if j < sum(self.chip_dims[:i+1]):
-                return i
+        for idx, val in enumerate(self.chip_dims):
+            if i < sum(self.chip_dims[:idx+1]):
+                return idx
 
     def _chip_from_xyz(self, coordinates):
-        start_diff = coordinates - self.start_pt
-        self.percent_complete = (np.dot(start_diff, self.M_hat)
-                            / np.sqrt(np.sum((self.m_pt - self.start_pt)**2)))
+        self.start_diff = coordinates - self.start_pt
+        self.percent_complete = (np.dot(self.start_diff, self.N_hat)
+                            / np.sqrt(np.sum((self.n_pt - self.start_pt)**2)))
         
         for i, val in enumerate(self.chip_dims_percents[::-1]):
             if self.percent_complete > val:
-                return self.num_chips - i + 1
+                return min(self.num_chips - i + 1, self.num_chips)
         return 0
         
     @property
@@ -534,8 +578,8 @@ class McgrainPalette(Device, FltMvInterface):
         """Returns the current chip position."""
         return int(self._chip_from_xyz(self.coordinates))
 
-    def invert(self):
-        self.N, self.M = self.M, self.N
-        if hasattr(self, 'N_hat'):
-            self.N_hat, self.M_hat = self.M_hat, self.N_hat
-            self.NM_hat = np.flip(self.NM_hat, axis=1)
+    # def invert(self):
+    #     self.N, self.M = self.M, self.N
+    #     if hasattr(self, 'N_hat'):
+    #         self.N_hat, self.M_hat = self.M_hat, self.N_hat
+    #         self.NM_hat = np.flip(self.NM_hat, axis=1)

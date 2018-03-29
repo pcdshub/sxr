@@ -21,8 +21,8 @@ class User(object):
     def __init__(self, *args, **kwargs):
         self.palette.accept_calibration(
             np.array([-9.54519187, -86.26064453,  -2.       ]),
-            np.array([ 12.57935063,  -86.26064453,  -2.    ]),
-            np.array([ -9.24544125, -2.99960937,  -2.    ]))
+            np.array([ -9.24544125, -2.99960937,  -2.    ]),
+            np.array([ 12.57935063,  -86.26064453,  -2.    ]))
 
     def mcgrain_scan(self, mono_start, mono_stop, mono_steps, palette_steps, 
                      df_name=None, *args, **kwargs):
