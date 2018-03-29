@@ -1,3 +1,4 @@
+import numpy as np
 from hutch_python.utils import safe_load
 from ophyd.sim import SynAxis
 
@@ -12,8 +13,7 @@ with safe_load('Virtual Motors'):
 with safe_load('Mcgrain Palette'):
     palette = McgrainPalette(name="Mcgrain Palette")
 
-with safe_load('Monochrometer'):
-    mono = ErrorIMS("SXR:MON:MMS:06", name="Monochrometer")
-
-with safe_load('Event Sequencer'):
-    sequencer = Sequencer("ECS:SYS0:2", name="Event Sequencer")
+    palette.accept_calibration(
+        np.array([-9.54519187, -2.99960937, -2.       ]), 
+        np.array([ 12.57935063,  -2.89960937,  -2.    ]), 
+        np.array([ -9.24544125, -86.26064453,  -2.    ]))

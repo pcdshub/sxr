@@ -408,7 +408,7 @@ class McgrainPalette(Device, FltMvInterface):
         """
         prior = (self.index, self.position)
         self.move(*args, timeout=timeout, wait=wait)
-        logger.info('Moved {0} to from {1} (Sample {2}) to {3} (Sample {4})'
+        logger.info('Moved {0} from {1} (Sample {2}) to {3} (Sample {4})'
                     ''.format(self.name, *prior, self.index, self.position))
 
     def mvr(self, *args, timeout=None, wait=True):

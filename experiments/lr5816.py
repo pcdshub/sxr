@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 class User(object):
     """User class for the LR58 Mcgrain experiment."""
     # Devices
-    _mono = ErrorIMS("SXR:MON:MMS:06", name="Monochrometer")
-    _sequencer = Sequencer("ECS:SYS0:2", name="sequencer")
+    _mono = ErrorIMS("SXR:MON:MMS:06", name="Monochrometer Pitch")
+    _sequencer = Sequencer("ECS:SYS0:2", name="Event Sequencer")
     _palette = McgrainPalette(name="Mcgrain Palette")
 
     def __init__(self, *args, **kwargs):

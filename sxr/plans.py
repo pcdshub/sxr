@@ -2,7 +2,8 @@ import uuid
 import logging
 import time
 
-from bluesky.plan_stubs import one_nd_step, abs_set, rel_set, wait as plan_wait
+from bluesky.plan_stubs import (one_nd_step, abs_set, rel_set, checkpoint,
+                                wait as plan_wait)
 from bluesky.plans import scan, inner_product_scan, list_scan
 from bluesky.preprocessors import stub_wrapper
 
@@ -156,8 +157,6 @@ def a2_scan(num, *args, wait=None, md=None, **kwargs):
     # Run the inner product scan
     yield from inner_product_scan([], num, *args, per_step=per_step, md=md, 
                                   **kwargs)
-
-logger.debug = print
  
 def mcgrain_scan(outer_motor, inner_motor, sequencer, outer_start,
                  outer_stop, outer_steps, inner_steps, inner_step_size=1,
@@ -204,26 +203,32 @@ def mcgrain_scan(outer_motor, inner_motor, sequencer, outer_start,
 
     # Define what will be done at every monochrometer step
     def outer_per_step(detectors, motor, step):
+        yield from checkpoint()
         # Move the monochrometer to the inputted energy
-        logger.debug('Outer Step: Moving {0} to {1}.'.format(
+        logger.info('Outer Step: Moving {0} to {1}.'.format(
             outer_motor.name, step))
         yield from abs_set(outer_motor, step, wait=True)
 
         # Define what we will do at every motor step
         def inner_per_step(detectors, motor, step):
+            yield from checkpoint()
+            # Notify the user where we are trying to move to
+            goal_sample = inner_motor.position + inner_step_size
+            goal_index = inner_motor.locate_1d(goal_sample)
+            logger.info('Inner Step: Moving {0} to {1} (sample {2}).'.format(
+                inner_motor.name, goal_index, goal_sample))
             # Move the motor to the inputted step
             yield from rel_set(inner_motor, inner_step_size, wait=True)
-            logger.debug('Inner Step: Moved {0} to {1} (sample {2}).'.format(
-                inner_motor.name, inner_motor.index, inner_motor.position))
 
             if use_sequencer:
                 # # Start and wait for the sequencer
-                logger.debug('Inner Step: Starting the sequencer')
+                logger.info('Inner Step: Starting the sequencer')
                 yield from abs_set(sequencer, 1, wait=True)
 
             # Wait the specified amount of time
-            if wait is not None:
-                logger.debug("Waiting for {0} second(s)...".format(wait))
+            if wait:
+                logger.info("Inner Step: Waiting for {0} second(s)...".format(
+                    wait))
                 time.sleep(wait)
  
         # Define the larger inner scan as a list_scan. We cannot use
