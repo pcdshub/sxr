@@ -19,10 +19,18 @@ class User(object):
     palette = McgrainPalette(name="Mcgrain Palette")
 
     def __init__(self, *args, **kwargs):
-        self.palette.accept_calibration(
-            np.array([-9.54519187, -86.26064453,  -2.       ]),
-            np.array([ -9.24544125, -2.99960937,  -2.    ]),
-            np.array([ 12.57935063,  -86.26064453,  -2.    ]))
+        # Paths
+        dir_sxropr = Path('/reg/neh/operator/sxropr')
+        dir_experiment = dir_sxropr / 'experiments/sxrlr5816'
+        dir_scans = dir_experiment / 'mcgrain_scans'
+        dir_calibrations = dir_experiment / 'calibrations'
+
+        logger.info('Mcgrain scan results will be stored in "{0}"'.format(
+            str(dir_scans)))
+        logger.info('Palette calibrations will be stored in "{0}"'.format(
+            str(dir_calibrations)))
+
+        self.palette.load_calibration(confirm_overwrite=False)
 
     def mcgrain_scan(self, mono_start, mono_stop, mono_steps, palette_steps, 
                      df_name=None, *args, **kwargs):

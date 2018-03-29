@@ -4,7 +4,11 @@ import numpy as np
 import time
 from inspect import getdoc, getframeinfo, currentframe
 import IPython
+from pathlib import Path
+from glob import glob
+import os
 
+import json
 from ophyd.status import Status
 from ophyd.device import Device, Component as Cpt, FormattedComponent as FCpt
 from ophyd.signal import EpicsSignal, EpicsSignalRO, Signal
@@ -15,6 +19,7 @@ from pcdsdevices.epics_motor import EpicsMotor, IMS
 from pcdsdevices.mv_interface import FltMvInterface
 
 from .calib_file import CalibFile
+from .exceptions import NotCalibratedError
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +167,7 @@ class Sequencer(Device):
         """
         status = self.set(0)
         if wait:
-            status_wait(status)        
+            status_wait(status)
         return status
 
 
@@ -173,7 +178,8 @@ class McgrainPalette(Device, FltMvInterface):
     z_motor = Cpt(IMS, "SXR:EXP:MMS:11", name='LJE Sample Z')
 
     def __init__(self, N=(24*3 + 8), M=23, chip_spacing=2.4, sample_spacing=1.0,
-                 timeout=1,  chip_dims=[8,24,24,24], *args, **kwargs):
+                 timeout=1,  chip_dims=[8,24,24,24], dir_calib=None, *args, 
+                 **kwargs):
         """
         N : int
             specify the number of samples in the N direction
@@ -230,23 +236,53 @@ class McgrainPalette(Device, FltMvInterface):
         self.NM_hat = None
         self.length_calibrated = None
 
-    def calibrate_from_file(self, file_name):
-        """Set calibration using a CalibFile or .csv saved from a CalibFile
+        # Experiment paths
+        self.dir_sxropr = Path('/reg/neh/operator/sxropr')
+        self.dir_experiment = self.dir_sxropr / 'experiments/sxrlr5816'
+        self.dir_calib = dir_calib or self.dir_experiment / 'calibrations'
 
-        Parameters
-        ----------
-        file_name : str or CalibFile
-            Either pass the name of the .csv saved from a CalibFile or pass the
-            CalibFile direcly.
-        """
-        data_file = CalibFile(file_name)
-        self.accept_calibration(
-            N=data_file.N,
-            M=data_file.M,
-            start_pt=data_file.start_pt,
-            n_pt=data_file.n_pt,
-            m_pt=data_file.m_pt
-        )
+    def save_calibration(self, name=None):
+        """Save the current calibration to the calibration folder.""" 
+        # Can't save the calibration without one
+        if not self.calibrated:
+            raise NotCalibratedError('"{0}" is not calibrated!'.format(
+                self.name))
+        
+        # Create the calibration file
+        name = name or 'calibration_{0}.json'.format(
+            time.strftime("%Y%m%d_%H%M%S"))
+        calib_path = self.dir_calib / name
+        # Make the file if it doesn't exist 
+        if not calib_path.exists():
+            calib_path.touch()
+            calib_path.chmod(0o777)
+        
+        # Write the calibration coordinates
+        with open(str(calib_path), 'w') as calib:
+            json.dump([list(pt) for pt in self.calibration_coordinates], calib)
+        logger.info('Saved calibration as "{0}"'.format(name))
+
+    def load_calibration(self, name=None, confirm_overwrite=True):
+        """Load a palette calibration from a file."""
+        if not name:
+            # Grab the most recent file if a name wasn't passed
+            calib_path = Path(max(glob(str(self.dir_calib / '*')), 
+                                  key=os.path.getctime))
+        else:
+            # Make sure the file exists before proceeding
+            calib_path = self.dir_calib / name
+            if not calib_path.exists():
+                raise InputError('Calibration "{0}" does not exist!'.format(
+                    str(calib_path)))
+        logger.info('Loading calibration from "{0}"'.format(calib_path.name))
+
+        # Load the calibration file
+        with open(str(calib_path), 'r') as calib:
+            calibration_coordinates = [np.array(pt) for pt in json.load(calib)]
+
+        # Accept the calibration
+        self.accept_calibration(*calibration_coordinates,
+                                confirm_overwrite=confirm_overwrite)
 
     def accept_calibration(self, start_pt, n_pt, m_pt, confirm_overwrite=False):
         """
@@ -316,6 +352,8 @@ class McgrainPalette(Device, FltMvInterface):
 
         self.length_calibrated = np.sqrt(np.sum((self.n_pt - self.start_pt)**2))
         logger.info('Successfully calibrated "{0}"'.format(self.name))
+        # Always save the calibration
+        self.save_calibration()
 
     def locate_2d(self, i, j):
         """Return XYZ coordinates of sample i, j
