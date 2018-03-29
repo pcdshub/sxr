@@ -352,6 +352,8 @@ class McgrainPalette(Device, FltMvInterface):
 
         self.length_calibrated = np.sqrt(np.sum((self.n_pt - self.start_pt)**2))
         logger.info('Successfully calibrated "{0}"'.format(self.name))
+        # Always save the calibration
+        self.save_calibration()
 
     def locate_2d(self, i, j):
         """Return XYZ coordinates of sample i, j
@@ -561,9 +563,6 @@ class McgrainPalette(Device, FltMvInterface):
 
             # Always prompt the user about overwriting the calibration
             self.accept_calibration(*new_calibration, confirm_overwrite=True)
-
-            # Always save the calibration
-            self.save_calibration()
 
         except KeyboardInterrupt:
             logger.info('Exitting calibration routine.')
