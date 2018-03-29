@@ -240,6 +240,7 @@ def mcgrain_scan(outer_motor, inner_motor, sequencer, outer_start,
 
             # Fill the dataframe
             scan_positions.append((outer_motor.position, 
+                                   inner_motor.chip,
                                    inner_motor.position,
                                    *inner_motor.index,
                                    *inner_motor.coordinates))
@@ -259,7 +260,7 @@ def mcgrain_scan(outer_motor, inner_motor, sequencer, outer_start,
                                  outer_steps, per_step=outer_per_step))
 
     # Create the dataframe and return it
-    columns = ('mono', 'sample', 'i', 'j', 'x', 'y', 'z')
+    columns = ('mono', 'chip', 'sample', 'i', 'j', 'x', 'y', 'z')
     df = pd.DataFrame(scan_positions, columns=columns)
     df.index.name = 'Scan Step'
     return df

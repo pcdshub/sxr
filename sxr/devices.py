@@ -173,7 +173,7 @@ class McgrainPalette(Device, FltMvInterface):
     z_motor = Cpt(IMS, "SXR:EXP:MMS:11", name='LJE Sample Z')
 
     def __init__(self, N=23, M=(24*3 + 8), chip_spacing=2.4, sample_spacing=1.0,
-                 timeout=1,  samples_per_chip=24, invert=False, 
+                 timeout=1,  chip_dims=[8,24,24,24], invert=False, 
                  *args, **kwargs):
         """
         N : int
@@ -191,10 +191,21 @@ class McgrainPalette(Device, FltMvInterface):
         self.N = N
         self.M = M
 
-        self.samples_per_chip = samples_per_chip 
+        # Dimensions of the chips
+        self.chip_dims = chip_dims
+
+        if self.M != sum(self.chip_dims):
+            raise InputError('Inputted differing number of samples in M as the '
+                             'number of samples in the chip dimensions. Got '
+                             '{0} and {1} (sum {2}).'.format(
+                                 self.M, self.chip_dims, sum(self.chip_dims)))
+        self.chip_dims_percents = [sum(self.chip_dims[:i+1]) / self.M
+                                   for i in range(len(self.chip_dims))]
+
         self.chip_spacing = chip_spacing
         self.sample_spacing = sample_spacing
-        self.num_chips = self.M // self.samples_per_chip
+
+        self.num_chips = len(self.chip_dims) - 1
         self.length = ((self.M - self.num_chips - 1)*self.sample_spacing 
                        + self.num_chips * self.chip_spacing)
 
@@ -406,10 +417,14 @@ class McgrainPalette(Device, FltMvInterface):
         """Performs the standard mv but stops the motors on KeyboardInturrupts
         if waiting for the move to complete.
         """
-        prior = (self.index, self.position)
-        self.move(*args, timeout=timeout, wait=wait)
-        logger.info('Moved {0} from {1} (Sample {2}) to {3} (Sample {4})'
-                    ''.format(self.name, *prior, self.index, self.position))
+        try:
+            prior = (self.index, self.position)
+            self.move(*args, timeout=timeout, wait=wait)
+            logger.info('Moved {0} from {1} (Sample {2}) to {3} (Sample {4})'
+                        ''.format(self.name, *prior, self.index, self.position))
+        except KeyboardInterrupt:
+            logger.info('KeyboardInterrupt raised. Stopping palette.')
+            self.stop()
 
     def mvr(self, *args, timeout=None, wait=True):
         all_positions = [self.position, self.index, self.coordinates]
@@ -500,21 +515,27 @@ class McgrainPalette(Device, FltMvInterface):
 
     def _chip_from_j(self, j):
         """Returns the chip number based on the inputted column."""
-        return j // self.samples_per_chip
+        for i, val in enumerate(self.chip_dims):
+            if j < sum(self.chip_dims[:i+1]):
+                return i
 
     def _chip_from_xyz(self, coordinates):
         start_diff = coordinates - self.start_pt
         self.percent_complete = (np.dot(start_diff, self.M_hat)
                             / np.sqrt(np.sum((self.m_pt - self.start_pt)**2)))
-        return max(self.M * self.percent_complete // self.samples_per_chip, 0)
+        
+        for i, val in enumerate(self.chip_dims_percents[::-1]):
+            if self.percent_complete > val:
+                return self.num_chips - i + 1
+        return 0
         
     @property
     def chip(self):
         """Returns the current chip position."""
         return int(self._chip_from_xyz(self.coordinates))
 
-    # def invert(self):
-    #     self.N, self.M = self.M, self.N
-    #     if hasattr(self, 'N_hat'):
-    #         self.N_hat, self.M_hat = self.M_hat, self.N_hat
-    #         self.NM_hat = np.flip(self.NM_hat, axis=1)
+    def invert(self):
+        self.N, self.M = self.M, self.N
+        if hasattr(self, 'N_hat'):
+            self.N_hat, self.M_hat = self.M_hat, self.N_hat
+            self.NM_hat = np.flip(self.NM_hat, axis=1)
