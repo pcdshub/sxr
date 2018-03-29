@@ -110,3 +110,7 @@ class McgrainPalette(McgPalette):
         super().__init__(*args, **kwargs)
         for mot in self.motors:
             mot.limits = (-np.inf, np.inf)
+        self.accept_calibration(np.array([0,      0,      0]), 
+                                np.array([self.N, 0,      0]), 
+                                np.array([0,      self.length, 0]))
+
