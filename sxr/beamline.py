@@ -2,7 +2,6 @@ import numpy as np
 from hutch_python.utils import safe_load
 from ophyd.sim import SynAxis
 
-from .devices import McgrainPalette, ErrorIMS, Sequencer
 
 # Test axes that may come in handy
 with safe_load('Virtual Motors'):

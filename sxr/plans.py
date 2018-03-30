@@ -159,7 +159,7 @@ def a2_scan(num, *args, wait=None, md=None, **kwargs):
     yield from inner_product_scan([], num, *args, per_step=per_step, md=md, 
                                   **kwargs)
  
-def mcgrain_scan(outer_motor, inner_motor, sequencer, outer_start,
+def mcgrane_scan(outer_motor, inner_motor, sequencer, outer_start,
                  outer_stop, outer_steps, inner_steps, inner_step_size=1,
                  use_sequencer=True, wait=None):
     """Relative scan nested into a normal scan, that starts the sequencer at
