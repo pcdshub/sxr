@@ -6,7 +6,7 @@ initialization. If you wish to use devices from this file, import
 them from sxr.db after calling the sxrpython startup script.
 
 
-hutch-python last loaded on 2018-03-30 10:49:45.973715
+hutch-python last loaded on 2018-03-30 13:51:25.663354
 with the following objects:
 
 RE                   <class 'bluesky.run_engine.RunEngine'>
@@ -20,7 +20,7 @@ SynAxis              <class 'ophyd.device.ComponentMeta'>
 virtual_motor_1      <class 'ophyd.sim.SynAxis'>
 virtual_motor_2      <class 'ophyd.sim.SynAxis'>
 virtual_motor_3      <class 'ophyd.sim.SynAxis'>
-x                    <class 'experiments.lr5816.User'>
+x                    <class 'experiments.lr5816.user.User'>
 sxr                  <class 'hutch_python.utils.IterableNamespace'>
 safe                 <class 'hutch_python.utils.IterableNamespace'>
 virtual              <class 'hutch_python.utils.IterableNamespace'>

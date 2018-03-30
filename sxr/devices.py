@@ -1,4 +1,3 @@
-import IPython
 import logging
 import numpy as np
 import time
@@ -11,8 +10,6 @@ from ophyd.signal import EpicsSignal, EpicsSignalRO, Signal
 from ophyd.status import Status, wait as status_wait, SubscriptionStatus
 from pcdsdevices.epics_motor import EpicsMotor, IMS
 from pcdsdevices.mv_interface import FltMvInterface
-
-from .utils import calibrated
 
 logger = logging.getLogger(__name__)
 
