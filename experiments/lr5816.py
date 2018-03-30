@@ -1,6 +1,7 @@
 import logging
 import time
 import os
+from functools import wraps
 from pathlib import Path
 from functools import reduce
 from glob import glob
@@ -13,12 +14,23 @@ from pcdsdevices.mv_interface import FltMvInterface
 from pcdsdevices.epics_motor import IMS
 
 from sxr.devices import ErrorIMS, Sequencer
-from sxr.exceptions import InputError
+from sxr.exceptions import InputError, NotCalibratedError
 from sxr.plans import mcgrane_scan as _mcgrane_scan
-from sxr.utils import calibrated
 
 logger = logging.getLogger(__name__)
 
+def calibrated(method):
+    """Checks to make sure the wrapped method is run when the object is
+    calibrated.
+    """
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        if not self.calibrated:
+            raise NotCalibratedError('"{0}" is not calibrated!'.format(
+                self.name))
+        return method(self, *args, **kwargs)
+    return wrapped
+        
 
 class McgranePalette(Device, FltMvInterface):
     x_motor = Cpt(ErrorIMS, "SXR:EXP:MMS:08", name='LJE Sample X')
