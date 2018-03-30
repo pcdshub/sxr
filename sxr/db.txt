@@ -6,7 +6,7 @@ initialization. If you wish to use devices from this file, import
 them from sxr.db after calling the sxrpython startup script.
 
 
-hutch-python last loaded on 2018-03-29 20:17:19.357696
+hutch-python last loaded on 2018-03-30 10:49:45.973715
 with the following objects:
 
 RE                   <class 'bluesky.run_engine.RunEngine'>
@@ -17,9 +17,6 @@ sxr_beampath         <class 'lightpath.path.BeamPath'>
 np                   <class 'module'>
 safe_load            <class 'function'>
 SynAxis              <class 'ophyd.device.ComponentMeta'>
-McgranePalette       <class 'ophyd.device.ComponentMeta'>
-ErrorIMS             <class 'ophyd.device.ComponentMeta'>
-Sequencer            <class 'ophyd.device.ComponentMeta'>
 virtual_motor_1      <class 'ophyd.sim.SynAxis'>
 virtual_motor_2      <class 'ophyd.sim.SynAxis'>
 virtual_motor_3      <class 'ophyd.sim.SynAxis'>
