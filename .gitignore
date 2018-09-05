@@ -1,6 +1,9 @@
 # Ignore the cache dir
 cache/*
 
+# Vi editor files
+*.swp
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.pyc

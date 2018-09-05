@@ -6,22 +6,30 @@ initialization. If you wish to use devices from this file, import
 them from sxr.db after calling the sxrpython startup script.
 
 
-hutch-python last loaded on 2018-09-05 10:09:02.031235
+hutch-python last loaded on 2018-09-05 15:17:12.996404
 with the following objects:
 
 RE                   <class 'bluesky.run_engine.RunEngine'>
-plans                <class 'module'>
-p                    <class 'module'>
+bp                   <class 'types.SimpleNamespace'>
+bps                  <class 'types.SimpleNamespace'>
+bpp                  <class 'types.SimpleNamespace'>
 daq                  <class 'pcdsdaq.daq.Daq'>
-sxr_beampath         <class 'lightpath.path.BeamPath'>
+scan_pvs             <class 'pcdsdaq.scan_vars.ScanVars'>
+sxr_gige_1           <class 'pcdsdevices.areadetector.detectors.PCDSDetector'>
+sxr_gige_3           <class 'pcdsdevices.areadetector.detectors.PCDSDetector'>
+sxr_gige_4           <class 'pcdsdevices.areadetector.detectors.PCDSDetector'>
+sxr_gige_5           <class 'pcdsdevices.areadetector.detectors.PCDSDetector'>
+sxr_gige_hr_1        <class 'pcdsdevices.areadetector.detectors.PCDSDetector'>
+sxr_gige_col_1       <class 'pcdsdevices.areadetector.detectors.PCDSDetector'>
 np                   <class 'module'>
 safe_load            <class 'function'>
 SynAxis              <class 'ophyd.device.ComponentMeta'>
 virtual_motor_1      <class 'ophyd.sim.SynAxis'>
 virtual_motor_2      <class 'ophyd.sim.SynAxis'>
 virtual_motor_3      <class 'ophyd.sim.SynAxis'>
+x                    <class 'types.SimpleNamespace'>
+user                 <class 'types.SimpleNamespace'>
 sxr                  <class 'hutch_python.utils.IterableNamespace'>
-safe                 <class 'hutch_python.utils.IterableNamespace'>
 virtual              <class 'hutch_python.utils.IterableNamespace'>
-all_objects          <class 'hutch_python.utils.IterableNamespace'>
 a                    <class 'hutch_python.utils.IterableNamespace'>
+all_objects          <class 'hutch_python.utils.IterableNamespace'>
