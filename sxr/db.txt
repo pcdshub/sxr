@@ -6,7 +6,7 @@ initialization. If you wish to use devices from this file, import
 them from sxr.db after calling the sxrpython startup script.
 
 
-hutch-python last loaded on 2018-08-30 14:02:11.028598
+hutch-python last loaded on 2018-09-05 10:09:02.031235
 with the following objects:
 
 RE                   <class 'bluesky.run_engine.RunEngine'>
