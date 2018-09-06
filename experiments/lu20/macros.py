@@ -12,6 +12,9 @@ from bluesky.utils import ProgressBarManager
 logger = logging.getLogger(__name__)
 
 def macro_sweep_test(target):
+    logging.info('macro_sweep_test initiated with target {:0.4f}'.format(
+        target
+    ))
     RE = RunEngine({})
     bec = BestEffortCallback()
     RE.subscribe(bec)
@@ -20,6 +23,7 @@ def macro_sweep_test(target):
 
 def macro_RSXS_smooth_sweep(stroke_height, stroke_spacing, n_strokes,
             both_directions):
+
     RE = RunEngine({})
     bec = BestEffortCallback()
     RE.subscribe(bec)
