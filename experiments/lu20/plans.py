@@ -1,6 +1,7 @@
 import uuid
 import logging
 import time
+import datetime
 
 import pandas as pd
 from bluesky.plan_stubs import mv, one_nd_step, abs_set, wait as plan_wait
@@ -52,10 +53,47 @@ def xy_sequencer(start_x, start_y,stroke_height, stroke_spacing, n_strokes,
 
 def rel_smooth_sweep(mot_x, mot_y, shutter, stroke_height, stroke_spacing,
             n_strokes, both_directions=True):
+    """
+    rel_smooth_sweep
+
+    This bluesky plan moves a 2-axis actuator across multiple traversals of a
+    sample. The plan traverses the entirety of the stroke_height (y-axis) and
+    after each traversal, steps in the x-axis by the stroke_spacing.It may be
+    configured to scan in only a single direction and shutter the beam for the
+    opposite direction. This removes the shutter at the beginning of the plan
+    and reinserts it at the end. At the end of the plan, the sample is moved to
+    its original y-axis position but with an x-axis posiiton ready for the next
+    run..
+
+    Parameters
+    ---------
+    mot_x : pcdsdevices.EpicsMotor.IMS
+        The x axis sample mover's ophyd instance.
+
+    mot_y : pcdsdevices.EpcisMotor.IMS
+        The y axis sample mover's ophyd instance.
+    
+    shutter : experiments.lu20.devices.BeamShutter
+        The beam shutter's ophyd instance.
+
+    stroke_height : float
+        Vertical distance (y-axs) of each stroke.
+
+    stroke_spacing : float
+        Horizontal distance between individual strokes.
+    
+    n_strokes : int
+        Number of strokes to complete.
+
+    both_directions : bool, optional
+        Defaults to True. If this value is true the beam will be scanned across
+        the sample while moving in both vertical directions. If false, the beam
+        is only scanned in a single direction.
+    """
     
     initiate_str = """Initiating rel_smooth_sweep:
-    mot_x = {mot_x:0.4f}
-    mot_y = {mot_y:0.4f}
+    mot_x = {mot_x}
+    mot_y = {mot_y}
     shutter = {shutter}
     stroke_height = {stroke_height:0.4f}
     stroke_spacing = {stroke_spacing:0.4f}
@@ -71,6 +109,10 @@ def rel_smooth_sweep(mot_x, mot_y, shutter, stroke_height, stroke_spacing,
         n_strokes=n_strokes,
         both_directions=both_directions,
     ))
+
+    logging.info('Start time: {}'.format(datetime.datetime.now().strftime(
+        "%Y/%m/%d %H:%M:%S"
+    )))
  
     start_x = mot_x.get().user_readback
     start_y = mot_y.get().user_readback
@@ -87,25 +129,38 @@ def rel_smooth_sweep(mot_x, mot_y, shutter, stroke_height, stroke_spacing,
         n_strokes, 
         both_directions
     )
-    logging.info('Target coordinate list: {}'.format(coord_list))
+    logging.debug('Target coordinate list: {}'.format(coord_list))
 
+    logging.debug('Removing shutter')
+    shutter.remove()
+    
     for line_no, line in enumerate(coord_list):
         if not both_directions:
             if line_no % 3 == 0:
-                logging.info('Removing shutter')
+                logging.debug('Removing shutter')
                 shutter.remove()
             if line_no % 3 == 2:
-                logging.info('Inserting shutter')
+                logging.debug('Inserting shutter')
                 shutter.insert()
         
-        logging.info('driving motors to ({:0.4f},{:0.4f})'.format(
+        logging.debug('driving motors to ({:0.4f},{:0.4f})'.format(
             line[0],line[1]
         ))
         yield from mv(mot_x, line[0], mot_y, line[1])
-        logging.info('motors arrived at ({:0.4f},{:0.4f})'.format(
+        logging.debug('motors arrived at ({:0.4f},{:0.4f})'.format(
             mot_x.user_readback.value,
             mot_y.user_readback.value
         ))
 
-    logging.info('Inserting shutter')
+    logging.debug('Inserting shutter')
     shutter.insert()
+
+    end_x = mot_x.get().user_readback
+    end_y = mot_y.get().user_readback
+    logging.info('Motors ending at: ({x:0.4f},{y:0.4f})'.format(
+        x=end_x,
+        y=end_y
+    ))
+    logging.info('End time: {}'.format(datetime.datetime.now().strftime(
+        "%Y/%m/%d %H:%M:%S"
+    )))
