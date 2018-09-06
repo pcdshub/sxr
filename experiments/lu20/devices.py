@@ -33,7 +33,6 @@ class BeamShutter(InOutRecordPositioner):
     out_states = ['OUT']
     _unknown = False
     states_enum = Enum('ShutterStatesEnum',['IN','OUT'],start=0)
-    #_states_alias = {'0': 'IN','1': 'OUT'}
 
 shutter = BeamShutter('SXR:SPS:MPA:01', name='shutter')
 rsxs_sample_x = IMS(prefix='SXR:EXP:MMS:25',name='rsxs_sample_x')
