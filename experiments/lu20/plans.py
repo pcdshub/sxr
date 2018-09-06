@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 def rel_smooth_sweep_test(mot_x, target):
     yield from mv(mot_x, target)
 
+
 def xy_sequencer(start_x, start_y,stroke_height, stroke_spacing, n_strokes,
             both_directions=True):
 
@@ -45,7 +46,6 @@ def xy_sequencer(start_x, start_y,stroke_height, stroke_spacing, n_strokes,
     coord_list.append((new_x,new_y))
     
     return coord_list
-
 
 
 def rel_smooth_sweep(mot_x, mot_y, shutter, stroke_height, stroke_spacing,
