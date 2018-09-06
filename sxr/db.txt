@@ -6,7 +6,7 @@ initialization. If you wish to use devices from this file, import
 them from sxr.db after calling the sxrpython startup script.
 
 
-hutch-python last loaded on 2018-09-05 15:17:12.996404
+hutch-python last loaded on 2018-09-05 19:22:53.795028
 with the following objects:
 
 RE                   <class 'bluesky.run_engine.RunEngine'>
@@ -15,7 +15,6 @@ bps                  <class 'types.SimpleNamespace'>
 bpp                  <class 'types.SimpleNamespace'>
 daq                  <class 'pcdsdaq.daq.Daq'>
 scan_pvs             <class 'pcdsdaq.scan_vars.ScanVars'>
-sxr_gige_1           <class 'pcdsdevices.areadetector.detectors.PCDSDetector'>
 sxr_gige_3           <class 'pcdsdevices.areadetector.detectors.PCDSDetector'>
 sxr_gige_4           <class 'pcdsdevices.areadetector.detectors.PCDSDetector'>
 sxr_gige_5           <class 'pcdsdevices.areadetector.detectors.PCDSDetector'>
