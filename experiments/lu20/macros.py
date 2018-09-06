@@ -37,7 +37,8 @@ def macro_RSXS_smooth_sweep(stroke_height, stroke_spacing, n_strokes,
     opposite direction. This removes the shutter at the beginning of the plan
     and reinserts it at the end. At the end of the plan, the sample is moved to
     its original y-axis position but with an x-axis posiiton ready for the next
-    run.
+    run. For more details about the path, see the documentation of the
+    xy_sequencer, the method that generates the sample's path. 
 
     Parameters 
     ----------

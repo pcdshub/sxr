@@ -27,6 +27,13 @@ from enum import Enum
 logger = logging.getLogger(__name__)
 
 class BeamShutter(InOutRecordPositioner):
+    """
+    Class specifically for SXR Beam shutter. Can use the insert/remove commands 
+    and inserted/removed queries
+    
+    states_enum and _unknown has been manually specified to override
+    peculiarites in the inheritence tree. 
+    """
     state = Cpt(EpicsSignal, ':CMD', kind='omitted')
     states_list = ['IN', 'OUT']
     in_states = ['IN']
@@ -34,7 +41,13 @@ class BeamShutter(InOutRecordPositioner):
     _unknown = False
     states_enum = Enum('ShutterStatesEnum',['IN','OUT'],start=0)
 
-shutter = BeamShutter('SXR:SPS:MPA:01', name='shutter')
-rsxs_sample_x = IMS(prefix='SXR:EXP:MMS:25',name='rsxs_sample_x')
-rsxs_sample_y = IMS(prefix='SXR:EXP:MMS:26',name='rsxs_sample_y')
+shutter = BeamShutter('SXR:SPS:MPA:01', name='SXR shutter')
+rsxs_sample_x = IMS(
+    prefix='SXR:EXP:MMS:25',
+    name='rsxs sample X axis IMS motor'
+)
+rsxs_sample_y = IMS(
+    prefix='SXR:EXP:MMS:26',
+    name='rsxs sample Y axis IMS motor'
+)
 tst_23 = x = IMS(prefix='SXR:EXP:MMS:23',name='test_motor')

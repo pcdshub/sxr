@@ -11,14 +11,64 @@ from bluesky.preprocessors import stub_wrapper
 logger = logging.getLogger(__name__)
 
 def rel_smooth_sweep_test(mot_x, target):
+    """
+    rel_smooth_sweep_test is a test method.
+    """
     logging.info('driving motor to {:0.4f}'.format(target))
     yield from mv(mot_x, target)
     logging.info('motor arrived at {:0.4f}'.format(target))
 
 
-def xy_sequencer(start_x, start_y,stroke_height, stroke_spacing, n_strokes,
+def xy_sequencer(start_x, start_y, stroke_height, stroke_spacing, n_strokes,
             both_directions=True):
+    """
+    xy_sequencer generates a list of tuples specifying the x,y coordinates of
+    the path that the LU20 sampler must follow. 
 
+    This path has two forms. The first form, where both_directions=True is a
+    sideways "S" shape in which the sample moves in vertical strokes and at the
+    end of each stroke, increments in the horizontal axes. 
+
+    The second form, where both_directions=False looks like a comb. In this
+    form, the sample moves vertically (following the magnitude and direction of
+    stroke height) first. It then reverses this motion, returning to the
+    original height BEFORE incrementing horizontally and beginning the next
+    stroke.
+
+    The last coordinate in the sequence guarantees that the sample returns to
+    its original y axis position, with its x axis prepped for the next vertical
+    stroke.
+
+    Parameters
+    ----------
+    start_x : float
+        Initial X coordinate of the motion. The first stroke will begin
+        immediately from this point.
+
+    start_y : float
+        Initial Y coordinate of the motion. The first stroke will begin
+        immediately from this point.
+
+    stroke_height : float
+        Set the distance of the total y-axis stroke.
+
+    stroke_spacing : float
+        Set the horicontal (x-axis) distance between vertical strokes.
+
+    n_strokes : float
+        Number of vertical strokes to complete.
+
+    both_directions : bool, optional
+        Defaults to True. If this is True, follow the "S" shaped motion path.
+        Otherwise follow the comb shaped motion path. 
+    
+    Returns
+    -------
+    list of tuples
+        This is the list of (x,y) coordinates defining the path for the sample.
+        The 0th indexed coordinate is the initial position.
+
+    """
     coord_list = []
     coord_list.append((start_x,start_y))
 
@@ -63,7 +113,8 @@ def rel_smooth_sweep(mot_x, mot_y, shutter, stroke_height, stroke_spacing,
     opposite direction. This removes the shutter at the beginning of the plan
     and reinserts it at the end. At the end of the plan, the sample is moved to
     its original y-axis position but with an x-axis posiiton ready for the next
-    run..
+    run. For more details about the path, see the xy_sequencer, the method
+    responsible for generating the path. 
 
     Parameters
     ---------
@@ -88,7 +139,8 @@ def rel_smooth_sweep(mot_x, mot_y, shutter, stroke_height, stroke_spacing,
     both_directions : bool, optional
         Defaults to True. If this value is true the beam will be scanned across
         the sample while moving in both vertical directions. If false, the beam
-        is only scanned in a single direction.
+        is only scanned in a single direction. See xy_sequencer for details
+        about the motion. 
     """
     
     initiate_str = """Initiating rel_smooth_sweep:
