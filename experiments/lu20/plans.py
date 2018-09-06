@@ -39,18 +39,36 @@ def xy_sequencer(start_x, start_y,stroke_height, stroke_spacing, n_strokes,
         new_y = coord_list[-1][1]
         coord_list.append((new_x,new_y))
         
-    
-    # reset move
+    # reset move for next set 
     new_x = coord_list[0][0] + n_strokes * stroke_spacing
     new_y = coord_list[0][1]
     coord_list.append((new_x,new_y))
-
-        
-
+    
     return coord_list
 
 
 
-def rel_smooth_sweep(mot_x, mot_y, stroke_height, stroke_spacing,
+def rel_smooth_sweep(mot_x, mot_y, shutter, stroke_height, stroke_spacing,
             n_strokes, both_directions=True):
-    raise NotImplementedError
+    
+    start_x = mot_x.get().user_readback
+    start_y = mot_y.get().user_readback
+
+    coord_list = xy_sequencer(
+        start_x, 
+        start_y,
+        stroke_height,
+        stroke_spacing,
+        n_strokes, 
+        both_directions
+    )
+
+    for line_no, line in enumerate(coord_list):
+        if not both_directions:
+            if line_no % 3 == 0:
+                shutter.remove()
+            if line_no % 3 == 2:
+                shutter.insert()
+        
+        yield from mv(mot_x, line[0], mot_y, line[1])
+
