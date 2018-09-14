@@ -21,7 +21,7 @@ from ophyd.tests.conftest import using_fake_epics_pv
 from bluesky.run_engine import RunEngine
 from bluesky.tests.conftest import RE
 
-from ..devices import McgrainPalette as McgPalette
+from experiments.lr5816.devices import McgrainPalette as McgPalette
 
 logger = logging.getLogger(__name__)
 

@@ -25,9 +25,14 @@ if __name__ == '__main__':
     txt = 'pytest arguments: {}'.format(args)
     print(txt)
 
+    # print("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")
+    # print(__file__)
+    # print(os.getcwd())
+    # print("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
-    log_dir = Path(os.path.dirname(__file__)) / 'logs'
+    # log_dir = Path(os.path.dirname(__file__)) / 'logs'
+    log_dir = Path(os.getcwd()) / 'logs'
     log_file = log_dir / 'run_tests_log.txt'
 
     if not log_dir.exists():

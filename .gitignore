@@ -1,6 +1,13 @@
 # Ignore the cache dir
 cache/*
 
+# Vi editor files
+*.swp
+*.swo
+
+# Last load information
+sxr/db.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.pyc
