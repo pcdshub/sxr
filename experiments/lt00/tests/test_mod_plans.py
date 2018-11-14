@@ -8,7 +8,7 @@ from ophyd.sim import SynAxis
 
 #from experiments.lu20.plans import rel_smooth_sweep, xy_sequencer
 from experiments.lt00.mod_plans import xyz_sequencer, xyz_velocities
-
+from experiments.lt00.mod_macros import macro_VT50_smooth_sweep
 def test_xyz_sequencer():
     # sequence of tuples
     m = xyz_sequencer(

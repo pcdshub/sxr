@@ -3,11 +3,13 @@ import logging
 from bluesky import RunEngine
 from bluesky.preprocessors import run_wrapper
 
-from experiments.lu20.devices import (shutter, rsxs_sample_x, rsxs_sample_y,
-    tst_23)
-from experiments.lu20.plans import rel_smooth_sweep_test, rel_smooth_sweep
+from experiments.lu20.devices import shutter
+from experiments.lt00.mod_plans import rel_smooth_sweep
 from bluesky.callbacks.best_effort import BestEffortCallback
 from bluesky.utils import ProgressBarManager
+
+from pcdsdevices.epics_motor import IMS
+
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,20 @@ def macro_VT50_smooth_sweep(stroke_height, stroke_spacing, n_strokes,
         the sample while moving in both vertical directions. If false, the beam
         is only scanned in a single direction.
     """
+    sample_x = IMS(
+        prefix='SXR:EXP:MMS:43',
+        name='Sample X axis VT50 motor'
+    )
+    sample_y = IMS(
+        prefix='SXR:EXP:MMS:44',
+        name='Sample Y axis VT50 motor'
+    )
+    sample_z = IMS(
+        prefix='SXR:EXP:MMS:45',
+        name='Sample Z axis VT50 motor'
+    )
+
+
 
     RE = RunEngine({})
     bec = BestEffortCallback()
@@ -65,11 +81,12 @@ def macro_VT50_smooth_sweep(stroke_height, stroke_spacing, n_strokes,
         RE(run_wrapper(rel_smooth_sweep(
             mot_x=rsxs_sample_x,
             mot_y=rsxs_sample_y,
+            mot_z=rsxs_sample_z,
             shutter=shutter,
             stroke_height=stroke_height,
             stroke_spacing=stroke_spacing,
             n_strokes=n_strokes,
-            both_directions=both_directions
+            both_directions=True
         )))
     finally:
         return RE

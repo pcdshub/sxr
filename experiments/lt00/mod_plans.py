@@ -130,9 +130,8 @@ def xyz_velocities(origin, short_edge_end, long_edge_end, scalar=1.0):
     return short_vector, long_vector
 
 
-## Under work for adaptation
 def rel_smooth_sweep(mot_x, mot_y, mot_z, shutter, short_edge_end,
-        long_edge_end, n_strokes, both_directions=True):
+        long_edge_end, n_strokes, scalar=1.0):
     """
     rel_smooth_sweep
 
@@ -171,13 +170,19 @@ def rel_smooth_sweep(mot_x, mot_y, mot_z, shutter, short_edge_end,
     n_strokes : int
         Number of strokes to complete.
 
-    both_directions : bool, optional
-        Defaults to True. If this value is true the beam will be scanned across
-        the sample while moving in both vertical directions. If false, the beam
-        is only scanned in a single direction. See xy_sequencer for details
-        about the motion. 
+    scalar : float
+        Scale the motor velocities by this factor. Defaults to 1.0.
+
     """
-    
+
+    # Value for base velocity
+    min_base_velocity= .0001
+    # Limits on the velocity value (it must be within the max and base)
+    min_velocity_val = .0002
+    max_velocity_val = 14.9998
+    # Value for Maximum velocity
+    max_velocity = 15
+    both_directions = True
     initiate_str = """Initiating rel_smooth_sweep:
     mot_x = {mot_x}
     mot_y = {mot_y}
@@ -212,6 +217,24 @@ def rel_smooth_sweep(mot_x, mot_y, mot_z, shutter, short_edge_end,
         y=start_y,
         z=start_z,
     ))
+    # Set velocity limits (This must enclose normal motor velocity, exclusive)
+    mot_x.velocity_base = min_base_velocity
+    mot_y.velocity_base = min_base_velocity
+    mot_z.velocity_base = min_base_velocity
+    mot_x.velocity_max = max_velocity
+    mot_y.velocity_max = max_velocity
+    mot_z.velocity_max = max_velocity
+    # Set velocity and apply limits
+    short_velocity, long_velocity = xyz_velocities(
+        (start_x,start_y,start_z),
+        short_edge_end,
+        long_edge_end,
+        scalar
+    )
+    short_velocity = np.clip(
+        short_velocity, min_velocity_val, max_velocity_val)
+    long_velocity = np.clip(
+        long_velocity, min_velocity_val, max_velocity_val)
 
 
 
@@ -220,16 +243,18 @@ def rel_smooth_sweep(mot_x, mot_y, mot_z, shutter, short_edge_end,
         short_edge_end=short_edge_end,
         long_edge_end=long_edge_end,
         n_strokes=n_strokes, 
-        both_directions=False,
+        both_directions=both_directions,
     )
     logging.debug('Target coordinate list: {}'.format(coord_list))
 
     # Remove shutter
-    logging.debug('Removing shutter')
-    shutter.remove()
+    # logging.debug('Removing shutter')
+    # shutter.remove()
+
     
     # Make the individual moves -- continue working here
     for line_no, line in enumerate(coord_list):
+        '''
         if not both_directions:
             if line_no % 3 == 0:
                 logging.debug('Removing shutter')
@@ -237,6 +262,18 @@ def rel_smooth_sweep(mot_x, mot_y, mot_z, shutter, short_edge_end,
             if line_no % 3 == 2:
                 logging.debug('Inserting shutter')
                 shutter.insert()
+        '''
+
+        if both_directions:
+            if line_no % 2 == 0:
+                mot_x.velocity = long_velocity[0]
+                mot_y.velocity = long_velocity[1]
+                mot_z.velocity = long_velocity[2] 
+            else:
+                mot_x.velocity = short_velocity[0]
+                mot_y.velocity = short_velocity[1]
+                mot_z.velocity = short_velocity[2] 
+                
         
         logging.debug('driving motors to ({:0.4f},{:0.4f})'.format(
             line[0],line[1],line[2],
@@ -251,8 +288,8 @@ def rel_smooth_sweep(mot_x, mot_y, mot_z, shutter, short_edge_end,
         ))
 
     # Insert shutter - MAYBE DO EARLY FOR ODD N_STROKES?
-    logging.debug('Inserting shutter')
-    shutter.insert()
+    # logging.debug('Inserting shutter')
+    # shutter.insert()
     
 
     end_x = mot_x.get().user_readback
