@@ -70,23 +70,16 @@ def xyz_sequencer(origin, short_edge_end, long_edge_end, n_strokes):
     if n_strokes % 2 != 0:
         xy_unit_sequence = xy_unit_sequence[:-1]
     
+    # Convert list of unit vectors into matrix of vectors for the transform
     xy_unit_matrix = np.array(xy_unit_sequence)
-    
-    
-    print("**************************")
-    #for row in xy_matrix:
-    #    print(row)
     xy_unit_matrix = xy_unit_matrix.T
-    print(xy_unit_matrix)
-    
-    print("~~~~~~~~~~~~~~~~~~~~~~~~~~")
-    #print(np.array([delta_short,delta_long]))    
+
+    # Create the matrix for transforming unit vectors into relevnt space
     conversion_matrix = np.array([delta_short,delta_long]).T    
-    print(conversion_matrix) 
-
-
-    print("##########################")
+    
+    # Convert from unit to actual vectors
     result_points = np.dot(conversion_matrix, xy_unit_matrix)
     result_points = result_points.T
+
     return result_points
 
