@@ -31,7 +31,32 @@ def test_xyz_sequencer():
         (4.0, 0.4, 5.0),
     ]
 
-    assert np.all((m - target_result) < .0001)
+    assert np.all((m - target_result) < .0001) 
+    assert np.all((m - target_result) > -.0001)
+    
+    
+    m = xyz_sequencer(
+        (1, 5, 1),
+        (5.0, 5.4, 5.0),
+        (1.6, 8.0, 1.75),
+        4,
+    )
+
+    target_result = [
+        (1.0, 5.0, 1.0),
+        (1.6, 8.0, 1.75),
+        (2.6, 8.1, 2.75),
+        (2.0, 5.1, 2.0),
+        (3.0, 5.2, 3.0),
+        (3.6, 8.2, 3.75),
+        (4.6, 8.3, 4.75),
+        (4.0, 5.3, 4.0),
+        (5.0, 5.4, 5.0),
+        (5.0, 5.4, 5.0),
+    ]
+
+    assert np.all((m - target_result) < .0001) 
+    assert np.all((m - target_result) > -.0001)
 
 def test_xyz_velocities():
     result_short, result_long = xyz_velocities(

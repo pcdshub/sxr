@@ -3,8 +3,19 @@ import time
 import datetime
 
 import numpy as np
+from bluesky.plan_stubs import mv, one_nd_step, abs_set, wait as plan_wait
+from bluesky.plans import scan, inner_product_scan, rel_scan
+from bluesky.preprocessors import stub_wrapper
+
+
+
+
 
 from experiments.lu20.plans import xy_sequencer
+
+
+
+
 
 def xyz_sequencer(origin, short_edge_end, long_edge_end, n_strokes):
     """
@@ -51,8 +62,8 @@ def xyz_sequencer(origin, short_edge_end, long_edge_end, n_strokes):
     delta_short = _short_edge_end - _origin # x_end minus origin
     delta_long = _long_edge_end - _origin # y_end minus origin
 
-    print(delta_short)
-    print(delta_long)
+    #print(delta_short)
+    #print(delta_long)
     
     # Use a dimensionless unitvectors for ez-maths
     xy_unit_sequence = xy_sequencer(
@@ -80,6 +91,8 @@ def xyz_sequencer(origin, short_edge_end, long_edge_end, n_strokes):
     # Convert from unit to actual vectors
     result_points = np.dot(conversion_matrix, xy_unit_matrix)
     result_points = result_points.T
+    result_points = result_points + _origin
+
 
     return result_points
 
@@ -124,8 +137,17 @@ def xyz_velocities(origin, short_edge_end, long_edge_end, scalar=1.0):
     else:
         _long_edge_end = long_edge_end
 
-    short_vector = (_short_edge_end - _origin) * scalar
-    long_vector = (_long_edge_end - _origin) * scalar
+    # Calculate motion vector
+    short_vector = (_short_edge_end - _origin)
+    long_vector = (_long_edge_end - _origin)
+    
+    # Reduce to unit vector
+    short_vector = short_vector / np.linalg.norm(short_vector)
+    long_vector = long_vector / np.linalg.norm(long_vector)
+
+    # Scale such that scalar is the total velocity
+    short_vector = short_vector * scalar
+    long_vector = long_vector * scalar
 
     return short_vector, long_vector
 
@@ -178,7 +200,7 @@ def rel_smooth_sweep(mot_x, mot_y, mot_z, shutter, short_edge_end,
     # Value for base velocity
     min_base_velocity= .0001
     # Limits on the velocity value (it must be within the max and base)
-    min_velocity_val = .0002
+    min_velocity_val = .01
     max_velocity_val = 14.9998
     # Value for Maximum velocity
     max_velocity = 15
@@ -188,8 +210,6 @@ def rel_smooth_sweep(mot_x, mot_y, mot_z, shutter, short_edge_end,
     mot_y = {mot_y}
     mot_z = {mot_z}
     shutter = {shutter}
-    stroke_height = {stroke_height:0.4f}
-    stroke_spacing = {stroke_spacing:0.4f}
     n_strokes = {n_strokes}
     both_directions = {both_directions}
     """
@@ -198,8 +218,6 @@ def rel_smooth_sweep(mot_x, mot_y, mot_z, shutter, short_edge_end,
         mot_y=mot_y,
         mot_z=mot_z,
         shutter=shutter,
-        stroke_height=stroke_height,
-        stroke_spacing=stroke_spacing,
         n_strokes=n_strokes,
         both_directions=both_directions,
     ))
@@ -218,12 +236,12 @@ def rel_smooth_sweep(mot_x, mot_y, mot_z, shutter, short_edge_end,
         z=start_z,
     ))
     # Set velocity limits (This must enclose normal motor velocity, exclusive)
-    mot_x.velocity_base = min_base_velocity
-    mot_y.velocity_base = min_base_velocity
-    mot_z.velocity_base = min_base_velocity
-    mot_x.velocity_max = max_velocity
-    mot_y.velocity_max = max_velocity
-    mot_z.velocity_max = max_velocity
+    mot_x.velocity_base.put(min_base_velocity)
+    mot_y.velocity_base.put(min_base_velocity)
+    mot_z.velocity_base.put(min_base_velocity)
+    mot_x.velocity_max.put(max_velocity)
+    mot_y.velocity_max.put(max_velocity)
+    mot_z.velocity_max.put(max_velocity)
     # Set velocity and apply limits
     short_velocity, long_velocity = xyz_velocities(
         (start_x,start_y,start_z),
@@ -243,9 +261,12 @@ def rel_smooth_sweep(mot_x, mot_y, mot_z, shutter, short_edge_end,
         short_edge_end=short_edge_end,
         long_edge_end=long_edge_end,
         n_strokes=n_strokes, 
-        both_directions=both_directions,
     )
-    logging.debug('Target coordinate list: {}'.format(coord_list))
+    logging.info('Start location: {:0.4f}, {:0.4f}, {:0.4f}'.format(
+        start_x, start_y, start_z))
+    logging.info('Short edge end: {}'.format(short_edge_end))
+    logging.info('Long edge end: {}'.format(long_edge_end))
+    logging.info('Target coordinate list: {}'.format(coord_list))
 
     # Remove shutter
     # logging.debug('Removing shutter')
@@ -265,23 +286,26 @@ def rel_smooth_sweep(mot_x, mot_y, mot_z, shutter, short_edge_end,
         '''
 
         if both_directions:
-            if line_no % 2 == 0:
-                mot_x.velocity = long_velocity[0]
-                mot_y.velocity = long_velocity[1]
-                mot_z.velocity = long_velocity[2] 
+            if line_no % 2 == 1:
+                logging.info("Long Velocity: " + str(long_velocity))
+                mot_x.velocity.put(long_velocity[0])
+                mot_y.velocity.put(long_velocity[1])
+                mot_z.velocity.put(long_velocity[2])
             else:
-                mot_x.velocity = short_velocity[0]
-                mot_y.velocity = short_velocity[1]
-                mot_z.velocity = short_velocity[2] 
+                logging.info("Short Velocity: " + str(short_velocity))
+                mot_x.velocity.put(short_velocity[0])
+                mot_y.velocity.put(short_velocity[1])
+                mot_z.velocity.put(short_velocity[2])
                 
         
         logging.debug('driving motors to ({:0.4f},{:0.4f})'.format(
             line[0],line[1],line[2],
         ))
 
+        logging.info("Target position: " + str(line))
         yield from mv(mot_x, line[0], mot_y, line[1], mot_z, line[2])
 
-        logging.debug('motors arrived at ({:0.4f},{:0.4f},{:0.4f)'.format(
+        logging.debug('motors arrived at ({:0.4f},{:0.4f},{:0.4f}'.format(
             mot_x.user_readback.value,
             mot_y.user_readback.value,
             mot_z.user_readback.value,

@@ -23,8 +23,23 @@ def macro_sweep_test(target):
     RE.waiting_hook = ProgressBarManager()
     RE(run_wrapper(rel_smooth_sweep_test(tst_23,target)))
 
-def macro_VT50_smooth_sweep(stroke_height, stroke_spacing, n_strokes,
-            both_directions=True):
+sample_x = IMS(
+    prefix='SXR:EXP:MMS:43',
+    name='Sample X axis VT50 motor'
+)
+
+sample_y = IMS(
+    prefix='SXR:EXP:MMS:44',
+    name='Sample Y axis VT50 motor'
+)
+
+sample_z = IMS(
+    prefix='SXR:EXP:MMS:45',
+    name='Sample Z axis VT50 motor'
+)
+
+def macro_VT50_smooth_sweep(short_edge_end, long_edge_end, n_strokes,
+            scalar=1.0, both_directions=True):
     """
     macro_RSXS_smooth_sweep
 
@@ -58,18 +73,6 @@ def macro_VT50_smooth_sweep(stroke_height, stroke_spacing, n_strokes,
         the sample while moving in both vertical directions. If false, the beam
         is only scanned in a single direction.
     """
-    sample_x = IMS(
-        prefix='SXR:EXP:MMS:43',
-        name='Sample X axis VT50 motor'
-    )
-    sample_y = IMS(
-        prefix='SXR:EXP:MMS:44',
-        name='Sample Y axis VT50 motor'
-    )
-    sample_z = IMS(
-        prefix='SXR:EXP:MMS:45',
-        name='Sample Z axis VT50 motor'
-    )
 
 
 
@@ -77,18 +80,15 @@ def macro_VT50_smooth_sweep(stroke_height, stroke_spacing, n_strokes,
     bec = BestEffortCallback()
     RE.subscribe(bec)
     RE.waiting_hook = ProgressBarManager()
-    try:
-        RE(run_wrapper(rel_smooth_sweep(
-            mot_x=rsxs_sample_x,
-            mot_y=rsxs_sample_y,
-            mot_z=rsxs_sample_z,
+    RE(run_wrapper(rel_smooth_sweep(
+            mot_x=sample_x,
+            mot_y=sample_y,
+            mot_z=sample_z,
             shutter=shutter,
-            stroke_height=stroke_height,
-            stroke_spacing=stroke_spacing,
+            short_edge_end=short_edge_end,
+            long_edge_end=long_edge_end,
             n_strokes=n_strokes,
-            both_directions=True
-        )))
-    finally:
-        return RE
+            scalar=scalar
+    )))
 
 
