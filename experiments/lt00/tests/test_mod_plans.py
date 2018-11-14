@@ -7,9 +7,9 @@ from bluesky.preprocessors import run_wrapper
 from ophyd.sim import SynAxis
 
 #from experiments.lu20.plans import rel_smooth_sweep, xy_sequencer
-from experiments.lt00.mod_plans import xyz_sequencer
+from experiments.lt00.mod_plans import xyz_sequencer, xyz_velocities
 
-def test_bad():
+def test_xyz_sequencer():
     # sequence of tuples
     m = xyz_sequencer(
         (0, 0, 1),
@@ -32,3 +32,18 @@ def test_bad():
     ]
 
     assert np.all((m - target_result) < .0001)
+
+def test_xyz_velocities():
+    result_short, result_long = xyz_velocities(
+        (0, 0, 1),
+        (4.0, .4, 5.0),
+        (.6, 3.0, 1.75),
+        1
+    )
+
+    target_result_short = np.array([4.0,.4,4.0])
+    target_result_long = np.array([.6,3.0,.75])
+
+    assert np.all((result_short - target_result_short) < .0001)
+    assert np.all((result_long - target_result_long) < .0001)
+    
