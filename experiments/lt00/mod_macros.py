@@ -3,7 +3,7 @@ import logging
 from bluesky import RunEngine
 from bluesky.preprocessors import run_wrapper
 
-from experiments.lu20.devices import shutter
+from experiments.lt00.mod_devices import shutter
 from experiments.lt00.mod_plans import rel_smooth_sweep
 from bluesky.callbacks.best_effort import BestEffortCallback
 from bluesky.utils import ProgressBarManager
@@ -44,37 +44,31 @@ def macro_VT50_smooth_sweep(short_edge_end, long_edge_end, n_strokes,
     macro_RSXS_smooth_sweep
 
     This method wraps up the bluesky/ophyd codeand allows users to drive
-    the LU20 experiment with minimal code overhead. It contains the following
+    the LT00 experiment with minimal code overhead. It contains the following
     bluesky plan.
 
-    This bluesky plan moves a 2-axis actuator across multiple traversals of a
-    sample. The plan traverses the entirety of the stroke_height (y-axis) and
-    after each traversal, steps in the x-axis by the stroke_spacing.It may be
-    configured to scan in only a single direction and shutter the beam for the
-    opposite direction. This removes the shutter at the beginning of the plan
-    and reinserts it at the end. At the end of the plan, the sample is moved to
-    its original y-axis position but with an x-axis posiiton ready for the next
-    run. For more details about the path, see the documentation of the
-    xy_sequencer, the method that generates the sample's path. 
+    This bluesky plan moves a 3-axis actuator across multiple traversals of a
+    sample. The plan traverses the space enclosed in a plane defined by the
+    motors' starting location and the two positions short_edge_end and
+    long_edge_end. 
+    
 
     Parameters 
     ----------
-    stroke_height : float
-        Vertical distance (y-axs) of each stroke.
-
-    stroke_spacing : float
-        Horizontal distance between individual strokes.
+    short_edge_end : tuple or np.array
+        3-length (x,y,z) iteralbe specifying the end location of the short
+        steps.
+    
+    long_edge_end : tuple or np.array
+        3-length (x,y,z) iteralbe specifying the end location of the long
+        sweep.
     
     n_strokes : int
         Number of strokes to complete.
 
-    both_directions : bool, optional
-        Defaults to True. If this value is true the beam will be scanned across
-        the sample while moving in both vertical directions. If false, the beam
-        is only scanned in a single direction.
+    scalar : float
+        Scale the motor velocities by this factor. Defaults to 1.0.
     """
-
-
 
     RE = RunEngine({})
     bec = BestEffortCallback()

@@ -7,15 +7,7 @@ from bluesky.plan_stubs import mv, one_nd_step, abs_set, wait as plan_wait
 from bluesky.plans import scan, inner_product_scan, rel_scan
 from bluesky.preprocessors import stub_wrapper
 
-
-
-
-
 from experiments.lu20.plans import xy_sequencer
-
-
-
-
 
 def xyz_sequencer(origin, short_edge_end, long_edge_end, n_strokes):
     """
@@ -96,6 +88,7 @@ def xyz_sequencer(origin, short_edge_end, long_edge_end, n_strokes):
 
     return result_points
 
+
 def xyz_velocities(origin, short_edge_end, long_edge_end, scalar=1.0):
     """
     Parameters
@@ -168,7 +161,7 @@ def rel_smooth_sweep(mot_x, mot_y, mot_z, shutter, short_edge_end,
     responsible for generating the path. 
 
     Parameters
-    ---------
+    ----------
     mot_x : pcdsdevices.EpicsMotor.IMS
         The x axis sample mover's ophyd instance.
 
@@ -249,6 +242,7 @@ def rel_smooth_sweep(mot_x, mot_y, mot_z, shutter, short_edge_end,
         long_edge_end,
         scalar
     )
+
     short_velocity = np.clip(
         short_velocity, min_velocity_val, max_velocity_val)
     long_velocity = np.clip(
@@ -269,10 +263,11 @@ def rel_smooth_sweep(mot_x, mot_y, mot_z, shutter, short_edge_end,
     logging.info('Target coordinate list: {}'.format(coord_list))
 
     # Remove shutter
-    # logging.debug('Removing shutter')
+    logging.debug('Removing shutter')
     # shutter.remove()
+    yield from abs_set(shutter, "OUT")
 
-    
+ 
     # Make the individual moves -- continue working here
     for line_no, line in enumerate(coord_list):
         '''
@@ -314,6 +309,7 @@ def rel_smooth_sweep(mot_x, mot_y, mot_z, shutter, short_edge_end,
     # Insert shutter - MAYBE DO EARLY FOR ODD N_STROKES?
     # logging.debug('Inserting shutter')
     # shutter.insert()
+    yield from abs_set(shutter, "IN")
     
 
     end_x = mot_x.get().user_readback
