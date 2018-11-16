@@ -142,11 +142,11 @@ def xyz_velocities(origin, short_edge_end, long_edge_end, scalar=1.0):
     short_vector = short_vector * scalar
     long_vector = long_vector * scalar
 
-    return short_vector, long_vector
+    return np.abs(short_vector), np.abs(long_vector)
 
 
 def rel_smooth_sweep(mot_x, mot_y, mot_z, shutter, short_edge_end,
-        long_edge_end, n_strokes, scalar=1.0):
+        long_edge_end, n_strokes, scalar=1.0, min_base = .01, min_v=.02):
     """
     rel_smooth_sweep
 
@@ -191,9 +191,9 @@ def rel_smooth_sweep(mot_x, mot_y, mot_z, shutter, short_edge_end,
     """
 
     # Value for base velocity
-    min_base_velocity= .0001
+    min_base_velocity= min_base
     # Limits on the velocity value (it must be within the max and base)
-    min_velocity_val = .01
+    min_velocity_val = min_v
     max_velocity_val = 14.9998
     # Value for Maximum velocity
     max_velocity = 15
@@ -248,14 +248,15 @@ def rel_smooth_sweep(mot_x, mot_y, mot_z, shutter, short_edge_end,
     long_velocity = np.clip(
         long_velocity, min_velocity_val, max_velocity_val)
 
-
-
     coord_list = xyz_sequencer(
         origin=(start_x, start_y, start_z),
         short_edge_end=short_edge_end,
         long_edge_end=long_edge_end,
         n_strokes=n_strokes, 
     )
+
+        
+
     logging.info('Start location: {:0.4f}, {:0.4f}, {:0.4f}'.format(
         start_x, start_y, start_z))
     logging.info('Short edge end: {}'.format(short_edge_end))
@@ -266,7 +267,6 @@ def rel_smooth_sweep(mot_x, mot_y, mot_z, shutter, short_edge_end,
     logging.debug('Removing shutter')
     # shutter.remove()
     yield from abs_set(shutter, "OUT")
-
  
     # Make the individual moves -- continue working here
     for line_no, line in enumerate(coord_list):

@@ -39,7 +39,7 @@ sample_z = IMS(
 )
 
 def macro_VT50_smooth_sweep(short_edge_end, long_edge_end, n_strokes,
-            scalar=1.0, both_directions=True):
+            scalar=1.0, min_base=.05, min_v=.07,  both_directions=True):
     """
     macro_RSXS_smooth_sweep
 
@@ -68,6 +68,16 @@ def macro_VT50_smooth_sweep(short_edge_end, long_edge_end, n_strokes,
 
     scalar : float
         Scale the motor velocities by this factor. Defaults to 1.0.
+
+    min_base : float
+        Set motor's Base velocity. Larger numbers means the motor accelerates
+        and decelerates more quickly. This value must be less than min_v.
+        Values larger than 2 are not recommended.
+
+    min_v : float 
+        Set the motor's minimum velocity. Must be larger than min_base. Larger
+        numbers means the motor accelerates and decelerates more quickly.
+        Values larger than 2 are not recommended. 
     """
 
     RE = RunEngine({})
@@ -82,7 +92,9 @@ def macro_VT50_smooth_sweep(short_edge_end, long_edge_end, n_strokes,
             short_edge_end=short_edge_end,
             long_edge_end=long_edge_end,
             n_strokes=n_strokes,
-            scalar=scalar
+            scalar=scalar,
+            min_base=min_base,
+            min_v=min_v
     )))
 
 
