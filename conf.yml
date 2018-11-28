@@ -6,6 +6,3 @@ db: /reg/g/pcds/pyps/apps/hutch-python/device_config/db.json
 # Hutch-specific imports
 load: sxr.beamline
 
-experiment:
-  proposal: lu20
-  run: 17
