@@ -1,3 +1,12 @@
+#
+#   Adding this note on behalf of Sioan. This script is a last minute fix to
+#   start and stop the DAQ for the LT00 experiment.
+#
+#   This code is being included for organization's sake. DO NOT build upon this
+#   script.
+#
+
+
 from experiments.lt00.mod_macros import * 
 import subprocess
 
